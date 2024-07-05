@@ -1,99 +1,154 @@
 #!/bin/bash
+#
+# This script can download and compile dependencies, compile SuperSlicer
+# and optional build a .tgz and an appimage.
+#
+# Original script from SuperSlicer by supermerill https://github.com/supermerill/SuperSlicer
+#
+# Change log:
+#
+# 20 Nov 2023, wschadow, branding and minor changes
+# 01 Jan 2024, wschadow, added build options
+#
 
 export ROOT=`pwd`
 export NCORES=`sysctl -n hw.ncpu`
-export CMAKE_INSTALLED=`which cmake`
-#export ARCH=$(uname -m)
+
+OS_FOUND=$( command -v uname)
+
+case $( "${OS_FOUND}" | tr '[:upper:]' '[:lower:]') in
+  linux*)
+    TARGET_OS="linux"
+   ;;
+  msys*|cygwin*|mingw*)
+    # or possible 'bash on windows'
+    TARGET_OS='windows'
+   ;;
+  nt|win*)
+    TARGET_OS='windows'
+    ;;
+  darwin)
+    TARGET_OS='macos'
+    ;;
+  *)
+    TARGET_OS='unknown'
+    ;;
+esac
+
+# check operating system
+echo
+if [ $TARGET_OS == "macos" ]; then
+    if [ $(uname -m) == "x86_64" ]; then
+        echo -e "$(tput setaf 2)macOS x86_64 found$(tput sgr0)\n"
+        Processor="64"
+    elif [[ $(uname -m) == "i386" || $(uname -m) == "i686" ]]; then
+        echo "$(tput setaf 2)macOS arm64 found$(tput sgr0)\n"
+        Processor="64"
+    else
+        echo "$(tput setaf 1)Unsupported OS: macOS $(uname -m)"
+        exit -1
+    fi
+else
+    echo -e "$(tput setaf 1)This script doesn't support your Operating system!"
+    echo -e "Please use a macOS.$(tput sgr0)\n"
+    exit -1
+fi
 
 # Check if CMake is installed
+export CMAKE_INSTALLED=`which cmake`
 if [[ -z "$CMAKE_INSTALLED" ]]
 then
     echo "Can't find CMake. Either is not installed or not in the PATH. Aborting!"
     exit -1
 fi
 
-while getopts ":iaxbhc" opt; do
+BUILD_ARCH=$(uname -m)
+
+while getopts ":idaxbhcsltwr" opt; do
   case ${opt} in
     i )
-        export BUILD_IMAGE="1"
+        BUILD_IMAGE="1"
+        ;;
+    d )
+        BUILD_DEPS="1"
         ;;
     a )
-        export BUILD_ARCH="arm64"
+        BUILD_ARCH="arm64"
+        BUILD_IMG="-a"
         ;;
     x )
-        export BUILD_ARCH="x86_64"
+        BUILD_ARCH="x86_64"
+        BUILD_IMG="-x"
         ;;
     b )
-        export BUILD_DEBUG="1"
+        BUILD_DEBUG="1"
+        ;;
+    s )
+        BUILD_SUPERSLICER="1"
+        ;;
+    l )
+        UPDATE_POTFILE="1"
         ;;
     c)
-        export BUILD_XCODE="1"
+        BUILD_XCODE="1"
         ;;
-    h ) echo "Usage: ./BuildMacOS.sh [-i]"
-        echo "   -i: Generate DMG image (optional)"
-        echo "   -a: Build for arm64 (Apple Silicon)"
-        echo "   -x: Build for x86_64 (Intel)"
-        echo "   -b: Build with debug symbols"
-        echo "   -c: Build for XCode"
+    w )
+        BUILD_WIPE="1"
+    ;;
+    r )
+        BUILD_CLEANDEPEND="1"
+    ;;
+    h ) echo "Usage: ./BuildMacOS.sh  [-h][-w][-a][-r][-x][-b][-c][-d][-s][-l][-t][-i]"
+        echo "   -h: this message"
+        echo "   -w: wipe build directories bfore building"
+        echo "   -a: build for arm64 (Apple Silicon)"
+        echo "   -r: clean dependencies"
+        echo "   -x: build for x86_64 (Intel)"
+        echo "   -b: build with debug symbols"
+        echo "   -c: build for XCode"
+        echo "   -d: build dependencies"
+        echo "   -s: build SuperSlicer"
+        echo "   -t: build tests (in combination with -s)"
+        echo "   -i: generate .tgz and DMG image (optional)\n"
         exit 0
         ;;
   esac
 done
 
-echo "Build architecture: ${BUILD_ARCH}"
+if [ $OPTIND -eq 1 ]
+then
+    echo "Usage: ./BuildLinux.sh [-h][-w][-a][-r][-x][-b][-c][-d][-s][-l][-t][-i]"
+    echo "   -h: this message"
+    echo "   -w: wipe build directories bfore building"
+    echo "   -a: Build for arm64 (Apple Silicon)"
+    echo "   -r: clean dependencies"
+    echo "   -x: build for x86_64 (Intel)"
+    echo "   -b: build with debug symbols"
+    echo "   -c: build for XCode"
+    echo "   -d: build dependencies"
+    echo "   -s: build SuperSlicer"
+    echo "   -t: build tests (in combination with -s)"
+    echo -e "   -i: Generate .tgz and DMG image (optional)\n"
+    exit 0
+fi
 
-echo "\n/Applications:\n"
-ls /Applications
-echo "\n/Applications/Xcode_13.2.1.app:\n"
-ls /Applications/Xcode_13.2.1.app
-echo "\n/Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs:\n"
-ls /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs
-echo "\n/Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.1.sdk/usr/lib:\n"
-ls /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.1.sdk/usr/lib
-
-# Iconv: /Applications/Xcode_13.2.1.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX12.1.sdk/usr/lib/libiconv.tbd
-echo "\nbrew --prefix libiconv:\n"
-brew --prefix libiconv
-echo "\nbrew --prefix zstd:\n"
-brew --prefix zstd
+export $BUILD_ARCH
 export LIBRARY_PATH=$LIBRARY_PATH:$(brew --prefix zstd)/lib/
-# not enough to fix the issue on cross-compiling
-#if [[ -n "$BUILD_ARCH" ]]
-#then
-#    export LIBRARY_PATH=$LIBRARY_PATH:$(brew --prefix libiconv)/lib/
-#fi
 
-# mkdir build
-if [ ! -d "build" ]
+if [[ -n "$BUILD_DEPS" ]]
 then
-    mkdir build
-fi
-
-echo -n "[1/9] Updating submodules..."
-{
-    # update submodule profiles
-    pushd resources/profiles
-    git submodule update --init
-    popd
-} #> $ROOT/build/Build.log # Capture all command output
-echo "done"
-
-echo -n "[2/9] Changing date in version..."
-{
-    # change date in version
-    sed "s/+UNKNOWN/_$(date '+%F')/" version.inc > version.date.inc
-    mv version.date.inc version.inc
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
-
-# mkdir in deps
-if [ ! -d "deps/build" ]
-then
+    if [[ -n $BUILD_WIPE ]]
+    then
+       echo -e "\n wiping deps/build directory ...\n"
+       rm -fr deps/build
+       echo -e " ... done\n"
+    fi
+    # mkdir in deps
+    if [ ! -d "deps/build" ]
+    then
     mkdir deps/build
-fi
-
-echo -n "[3/9] Configuring dependencies..."
-{
+    fi
+    echo -e " \n[1/9] Configuring dependencies ... \n"
     BUILD_ARGS=""
     if [[ -n "$BUILD_ARCH" ]]
     then
@@ -104,54 +159,57 @@ echo -n "[3/9] Configuring dependencies..."
         BUILD_ARGS="${BUILD_ARGS} -DCMAKE_BUILD_TYPE=Debug"
     fi
     # cmake deps
-    echo "Cmake command: cmake .. -DCMAKE_OSX_DEPLOYMENT_TARGET=\"10.14\" ${BUILD_ARCH} "
-    pushd deps/build
-    cmake .. -DCMAKE_OSX_DEPLOYMENT_TARGET="10.14" $BUILD_ARGS 
-    echo "ls deps/build:"
-    ls -al
-    echo "ls deps/build/dep_GLEW-prefix"
-    ls -al dep_GLEW-prefix
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
+    echo "Cmake command: cmake .. -DCMAKE_OSX_DEPLOYMENT_TARGET=\"10.15\" ${BUILD_ARCH} "
+    pushd deps/build > /dev/null
+    cmake .. -DCMAKE_OSX_DEPLOYMENT_TARGET="10.15" $BUILD_ARGS
 
-echo -n "[4/9] Building dependencies..."
-{
+    echo -e "\n ... done\n"
+
+    echo -e "[2/9] Building dependencies ...\n"
+
     # make deps
-    make -j$NCORES
+    make -j1
 
-    echo "ls $PWD/destdir/usr/local/lib"
-    ls $PWD/destdir/usr/local/lib
-    
-    echo "ls $PWD/destdir/usr/local/lib/cmake"
-    ls $PWD/destdir/usr/local/lib/cmake
-    
-    echo "ls $PWD/destdir/usr/local/lib/cmake/boost_locale-1.75.0"
-    ls $PWD/destdir/usr/local/lib/cmake/boost_locale-1.75.0
+    echo -e "\n ... done\n"
 
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
+    echo -e "[3/9] Renaming wxscintilla library ...\n"
 
-echo -n "[5/9] Renaming wxscintilla library..."
-{
     # rename wxscintilla
-    pushd destdir/usr/local/lib
+    pushd destdir/usr/local/lib > /dev/null
     cp libwxscintilla-3.1.a libwx_osx_cocoau_scintilla-3.1.a
-    echo "ls deps/build/destdir/usr/local/lib"
-    ls -al
-    popd
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
 
-echo -n "[6/9] Cleaning dependencies..."
-{
-    # clean deps
-    rm -rf dep_*
-    popd
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
+    popd > /dev/null
+    popd > /dev/null
+    echo -e "\n ... done\n"
+fi
 
-echo -n "[7/9] Configuring Slic3r..."
-{
+if [[ -n "$BUILD_CLEANDEPEND" ]]
+then
+    echo -e "[4/9] Cleaning dependencies...\n"
+    pushd deps/build > /dev/null
+    pwd
+    rm -fr dep_*
+    popd > /dev/null
+    echo -e "\n ... done\n"
+fi
+
+if [[ -n "$BUILD_SUPERSLICER" ]]
+then
+    echo -e "[5/9] Configuring SuperSlicer ...\n"
+
+    if [[ -n $BUILD_WIPE ]]
+    then
+       echo -e "\n wiping build directory...\n"
+       rm -fr build
+       echo -e " ... done\n"
+    fi
+
+    # mkdir build
+    if [ ! -d "build" ]
+    then
+    mkdir build
+    fi
+
     BUILD_ARGS=""
     if [[ -n "$BUILD_ARCH" ]]
     then
@@ -165,38 +223,51 @@ echo -n "[7/9] Configuring Slic3r..."
     then
         BUILD_ARGS="-GXcode ${BUILD_ARGS}"
     fi
-    # cmake
-    pushd build
-    echo "Slic3r Cmake command: cmake .. -DCMAKE_PREFIX_PATH=\"$PWD/../deps/build/destdir/usr/local\" -DCMAKE_OSX_DEPLOYMENT_TARGET=\"10.14\" -DSLIC3R_STATIC=1 ${BUILD_ARGS}"
-    cmake .. -DCMAKE_PREFIX_PATH="$PWD/../deps/build/destdir/usr/local" -DCMAKE_OSX_DEPLOYMENT_TARGET="10.14" -DSLIC3R_STATIC=1 ${BUILD_ARGS}
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
 
-echo -n "[8/9] Building Slic3r..."
-{
+    if [[ -n "$BUILD_TESTS" ]]
+    then
+        BUILD_ARGS="${BUILD_ARGS} -DCMAKE_BUILD_TESTS=1"
+    else
+        BUILD_ARGS="${BUILD_ARGS} -DCMAKE_BUILD_TESTS=0"
+    fi
+
+    # cmake
+    pushd build > /dev/null
+    cmake .. -DCMAKE_PREFIX_PATH="$PWD/../deps/build/destdir/usr/local" -DCMAKE_OSX_DEPLOYMENT_TARGET="10.14" -DSLIC3R_STATIC=1 ${BUILD_ARGS}
+    echo -e "\n ... done"
+
     # make Slic3r
     if [[ -z "$BUILD_XCODE" ]]
     then
-        make -j$NCORES Slic3r
+        echo -e "\n[6/9] Building SuperSlicer ...\n"
+        make -j$NCORES
+        echo -e "\n ... done"
     fi
-    # make .mo
+
+    echo -e "\n[7/9] Generating language files ...\n"
+    #make .mo
+    if [[ -n "$UPDATE_POTFILE" ]]
+    then
+        make gettext_make_pot
+    fi
     make gettext_po_to_mo
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
-echo "ls ROOT"
-ls $ROOT
-echo "ls ROOT/build"
-ls $ROOT/build
-echo "ls -al ROOT/build/src"
-ls -al $ROOT/build/src
-# Give proper permissions to script
-chmod 755 $ROOT/build/src/BuildMacOSImage.sh
+
+    popd  > /dev/null
+    echo -e "\n ... done"
+
+    # Give proper permissions to script
+    chmod 755 $ROOT/build/src/BuildMacOSImage.sh
+
+    pushd build  > /dev/null
+    $ROOT/build/src/BuildMacOSImage.sh -a
+    popd  > /dev/null
+fi
 
 if [[ -n "$BUILD_IMAGE" ]]
 then
-	$ROOT/build/src/BuildMacOSImage.sh -i
-else
-	$ROOT/build/src/BuildMacOSImage.sh
+    # Give proper permissions to script
+    chmod 755 $ROOT/build/src/BuildMacOSImage.sh
+    pushd build  > /dev/null
+    $ROOT/build/src/BuildMacOSImage.sh -i
+    popd  > /dev/null
 fi
-echo "ls -al ROOT/build"
-ls -al $ROOT/build
