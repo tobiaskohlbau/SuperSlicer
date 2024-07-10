@@ -3053,10 +3053,15 @@ unsafe_variable_width(const ThickPolyline& polyline, const ExtrusionRole role, c
     ExtrusionPath path(role, false);
     ThickLines lines = polyline.thicklines();
     Flow current_flow = flow;
-
+    
     coordf_t saved_line_len = 0;
     for (int i = 0; i < (int)lines.size(); ++i) {
         ThickLine& line = lines[i];
+
+        for (int j = 0; j < i; j++) {
+            assert(lines[j].a_width == lines[j].b_width);
+            assert(!lines[j].a.coincides_with_epsilon(lines[j].b));
+        }
 
         const coordf_t line_len = line.length();
         const coordf_t prev_line_len = saved_line_len;
@@ -3079,49 +3084,70 @@ unsafe_variable_width(const ThickPolyline& polyline, const ExtrusionRole role, c
                         width.push_back(line.a_width * (1 - percent_width) + line.b_width * percent_width);
                     }
                     pp.push_back(line.b);
-
+                    
+                    assert(pp[0] == line.a);
+                    assert(width.front() == line.a_width);
+                    assert(width.back() == line.b_width);
                     assert(pp.size() == segments + 1);
                     assert(width.size() == segments);
                 }
 
-                // delete this line and insert new ones
-                lines.erase(lines.begin() + i);
-                for (size_t j = 0; j < segments; ++j) {
-                    ThickLine new_line(pp[j], pp[j + 1]);
-                    new_line.a_width = width[j];
-                    new_line.b_width = width[j];
-                    lines.insert(lines.begin() + i + j, new_line);
+                // overwrite this line and insert new ones
+                line.b = pp[1];
+                line.b_width = width[0];
+                // from here, 'line' variable is invalid (vector is modified);
+                for (size_t j = 1; j < segments; ++j) {
+                    lines.emplace(lines.begin() + i + j, pp[j], pp[j + 1], width[j], width[j]);
                 }
-
-                // go back to the start of this loop iteration
-                --i;
+                
+                for (int j = i; j < i + segments; j++) {
+                    assert(lines[j].a_width == lines[j].b_width);
+                    assert(!lines[j].a.coincides_with_epsilon(lines[j].b));
+                }
+                // go after the split
+                i += segments - 1;
                 continue;
             } else if (thickness_delta > 0) {
                 //create a middle point
-                ThickLine new_line(line.a.interpolate(0.5, line.b), line.b);
-                new_line.a_width = line.b_width;
-                new_line.b_width = line.b_width;
-                line.b = new_line.a;
+                Point mid_point = line.a.interpolate(0.5, line.b);
+                Point next_point = line.b;
+                coordf_t next_width = line.b_width;
+                line.b = mid_point;
                 line.b_width = line.a_width;
-                lines.insert(lines.begin() + i + 1, new_line);
-
-                // go back to the start of this loop iteration
-                --i;
+                assert(!line.a.coincides_with_epsilon(line.b));
+                assert(!mid_point.coincides_with_epsilon(next_point));
+                lines.emplace(lines.begin() + i + 1, mid_point, next_point, next_width, next_width);
+                // from here, 'line' variable is invalid (vector is modified);
+                
+                assert(lines[i].a_width == lines[i].b_width);
+                assert(lines[i+1].a_width == lines[i+1].b_width);
+                // go after the next point
+                ++i;
                 continue;
+            } else {
+                assert(line.a_width == line.b_width);
             }
         } else if (i > 0 && resolution_internal > line_len + prev_line_len) {
             assert(prev_line_len > 0 && line_len > 0);
             //merge lines?
             //if it's a loop, merge only if the distance is high enough
-            if (polyline.first_point() == polyline.last_point() && polyline.length() < (line_len + prev_line_len) * 6)
+            if (polyline.front() == polyline.back() && polyline.length() < (line_len + prev_line_len) * 6) {
+                //set width as a middle-ground
+                line.a_width = (line.a_width + line.b_width) / 2;
+                line.b_width = line.a_width;
                 continue;
+            }
             ThickLine& prev_line = lines[i - 1];
             const coordf_t sum_length = prev_line_len + line_len;
             const coordf_t new_length = prev_line.a.distance_to(line.b);
             assert(sum_length - new_length > -0.0000000001);
             // only merge if the distance is almost the sum (90° = 0.707)
-            if(new_length < std::max(sum_length * 0.9,  std::max(prev_line_len + line_len/2 , prev_line_len /2 + line_len)))
+            if (new_length < std::max(sum_length * 0.9, std::max(prev_line_len + line_len / 2, prev_line_len / 2 + line_len))) {
+                //set width as a middle-ground
+                line.a_width = (line.a_width + line.b_width) / 2;
+                line.b_width = line.a_width;
                 continue;
+            }
             assert(new_length > prev_line_len && new_length > line_len);
             coordf_t width = prev_line_len * (prev_line.a_width + prev_line.b_width) / 2;
             width += line_len * (line.a_width + line.b_width) / 2;
@@ -3138,7 +3164,13 @@ unsafe_variable_width(const ThickPolyline& polyline, const ExtrusionRole role, c
             //set width as a middle-ground
             line.a_width = (line.a_width + line.b_width) / 2;
             line.b_width = line.a_width;
+        } else {
+            assert(line.a_width == line.b_width);
         }
+    }
+    for (const ThickLine& line : lines) {
+        assert(line.a_width == line.b_width);
+        assert(!line.a.coincides_with_epsilon(line.b));
     }
     for (int i = 0; i < (int)lines.size(); ++i) {
         ThickLine& line = lines[i];
