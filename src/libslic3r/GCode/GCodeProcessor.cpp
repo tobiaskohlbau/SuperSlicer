@@ -3636,7 +3636,7 @@ void GCodeProcessor::store_move_vertex(EMoveType type)
         m_line_id + 1 :
         ((type == EMoveType::Seam) ? m_last_line_id : m_line_id);
     assert(type != EMoveType::Noop);
-
+//    std::cout<<"store_move_vertex @"<<m_time_processor.machines[0].time<<"\n";
     m_result.moves.emplace_back(
         m_last_line_id,
         type,
