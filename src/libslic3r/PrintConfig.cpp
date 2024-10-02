@@ -2203,6 +2203,20 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionFloats { 0.0 });
 
+    def = this->add("filament_pressure_advance", coFloats);
+    def->label = L("Pressure advance");
+    def->tooltip = L("Pressure advance value (Linear advance factor for Marlin)."
+           " If enabled, the gcode will emit a pressure advance value for this filament."
+           "\nWith reprap and sprinter, 'M572 Dx Sx' is used."
+           "\nWith klipper, 'SET_PRESSURE_ADVANCE ADVANCE=x EXTRUDER=x' is used."
+           "\nWith other firmware 'M900 Kx' is used.");
+    def->category = OptionCategory::filament;
+    def->min = 0;
+    def->can_be_disabled = true;
+    def->mode = comAdvancedE | comSuSi;
+    def->is_vector_extruder = true;
+    def->set_default_value(disable_defaultoption(new ConfigOptionFloats({0.02}), true));
+
     def = this->add("filament_ramming_parameters", coStrings);
     def->label = L("Ramming parameters");
     def->tooltip = L("This string is edited by RammingDialog and contains ramming specific parameters.");
@@ -9263,6 +9277,7 @@ std::unordered_set<std::string> prusa_export_to_remove_keys = {
 "filament_max_wipe_tower_speed",
 "filament_melt_zone_pause",
 "filament_max_overlap",
+"filament_pressure_advance",
 "filament_retract_lift_before_travel",
 "filament_shrink",
 "filament_skinnydip_distance",
