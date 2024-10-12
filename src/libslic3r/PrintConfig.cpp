@@ -66,7 +66,7 @@ static t_config_enum_names enum_names_from_keys_map(const t_config_enum_values &
 static const t_config_enum_values s_keys_map_ArcFittingType {
     { "disabled",       int(ArcFittingType::Disabled) },
     { "bambu",          int(ArcFittingType::Bambu) },
-    { "emit_center",    int(ArcFittingType::EmitCenter) } // arwelder
+    { "emit_center",    int(ArcFittingType::ArcWelder) } // arcwelder
 };
 CONFIG_OPTION_ENUM_DEFINE_STATIC_MAPS(ArcFittingType)
 
