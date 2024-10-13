@@ -599,7 +599,8 @@ std::string GCodeWriter::_travel_to_z(double z, const std::string &comment)
 
     std::ostringstream gcode;
 
-    gcode << write_acceleration();    if (config.z_step > SCALING_FACTOR)
+    gcode << write_acceleration();
+    if (config.z_step > SCALING_FACTOR)
         gcode << "G1 Z" << PRECISION(z, 6);
     else
         gcode << "G1 Z" << XYZ_NUM(z);

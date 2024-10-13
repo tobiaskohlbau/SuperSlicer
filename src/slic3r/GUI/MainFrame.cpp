@@ -2455,7 +2455,7 @@ void MainFrame::load_config(const DynamicPrintConfig& config)
     // (see PresetBundle::update_multi_material_filament_presets())
     // Better to call PresetBundle::load_config() instead?
     for (auto tab : wxGetApp().tabs_list)
-        if (tab->supports_printer_technology(printer_technology)) {
+        if (tab->supports_printer_technology(printer_technology) && tab->completed()) {
             // Only apply keys, which are present in the tab's config. Ignore the other keys.
 			for (const std::string &opt_key : tab->get_config()->diff(config))
 				// Ignore print_settings_id, printer_settings_id, filament_settings_id etc.

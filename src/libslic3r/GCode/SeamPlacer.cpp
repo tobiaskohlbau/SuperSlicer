@@ -1349,6 +1349,11 @@ std::optional<std::pair<size_t, size_t>> SeamPlacer::find_next_seam_in_layer(
         const size_t layer_idx, const float max_distance,
         const SeamPlacerImpl::SeamComparator &comparator) const {
     using namespace SeamPlacerImpl;
+
+    if (layers[layer_idx].points_tree->empty()) {
+        return {};
+    }
+
     std::vector<size_t> nearby_points_indices = find_nearby_points(*layers[layer_idx].points_tree, projected_position,
             max_distance);
 

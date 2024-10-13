@@ -156,7 +156,7 @@ bool GCodeViewer::Path::matches(const GCodeProcessorResult::MoveVertex& move, co
             compare.feedrate.is_same_value(feedrate, move.feedrate) &&
             fan_speed == move.fan_speed &&
             layer_time == move.layer_duration &&
-            elapsed_time == move.time &&
+            elapsed_time == move.move_time &&
             temperature == move.temperature &&
             compare.height.is_same_value(height, move.height) &&
             compare.width.is_same_value(width, move.width) &&
@@ -195,7 +195,7 @@ void GCodeViewer::TBuffer::add_path(const GCodeProcessorResult::MoveVertex& move
     paths.push_back({ move.type, move.extrusion_role, move.delta_extruder,
         move.height, move.width,
         move.feedrate, move.fan_speed, move.temperature,
-        move.volumetric_rate(), move.mm3_per_mm, move.extruder_id, move.cp_color_id, { { endpoint, endpoint } }, move.layer_duration, move.time });
+        move.volumetric_rate(), move.mm3_per_mm, move.extruder_id, move.cp_color_id, { { endpoint, endpoint } }, move.layer_duration, move.move_time });
 }
 
 namespace quick_pow10
@@ -1300,7 +1300,7 @@ void GCodeViewer::refresh(const GCodeProcessorResult& gcode_result, const std::v
             m_extrusions.ranges.volumetric_flow.update_from(curr.mm3_per_mm);
             if (curr.layer_duration > 0.f)
                 m_extrusions.ranges.layer_duration.update_from(curr.layer_duration);
-            m_extrusions.ranges.elapsed_time.update_from(curr.time);
+            m_extrusions.ranges.elapsed_time.update_from(curr.move_time);
             [[fallthrough]];
         }
         case EMoveType::Travel:
