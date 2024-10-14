@@ -7184,6 +7184,7 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
     assert(is_approx(this->writer().get_unlifted_position().z(), m_layer->print_z, EPSILON));
 }
 
+// generate a travel in xyz
 std::string GCodeGenerator::generate_travel_gcode(
     const Points3& travel,
     const std::string& comment
@@ -7204,7 +7205,7 @@ std::string GCodeGenerator::generate_travel_gcode(
     for (const Vec3crd& point : travel) {
         const Vec3d gcode_point{this->point_to_gcode(point)};
 
-        assert(previous_point == this->m_writer.get_position());
+        assert((previous_point.head<2>() - this->m_writer.get_position().head<2>()).norm() < EPSILON);
         gcode += this->m_writer.travel_to_xyz(gcode_point, false, 0.0, comment);
         this->set_last_pos(point.head<2>());
         previous_point = gcode_point;

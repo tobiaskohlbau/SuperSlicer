@@ -1259,7 +1259,7 @@ void WipeTower::toolchange_Change(
                              + never_skip_tag() + "\n"
     );
 
-    writer.append("[deretraction_from_wipe_tower_generator]");
+    writer.append("[deretraction_from_wipe_tower_generator]\n");
 
     // The toolchange Tn command will be inserted later, only in case that the user does
     // not provide a custom toolchange gcode.
