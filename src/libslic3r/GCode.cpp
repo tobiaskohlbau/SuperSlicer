@@ -5218,27 +5218,27 @@ std::string GCodeGenerator::extrude_multi_path3D(const ExtrusionMultiPath3D &mul
             && multipath3D.first_point().distance_to_square(last_pos()) > multipath3D.last_point().distance_to_square(last_pos());
     
     std::string gcode;
-    auto extrudepath3D =
-        [&](const ExtrusionPath3D &path) {
-            gcode += this->_before_extrude(path, description, speed);
+    //auto extrudepath3D =
+    //    [&](const ExtrusionPath3D &path) {
+    //        gcode += this->_before_extrude(path, description, speed);
 
-            // calculate extrusion length per distance unit
-            double e_per_mm = _compute_e_per_mm(path);
-            double path_length = 0.;
-            {
-                std::string_view comment = m_writer.gcode_config().gcode_comments ? description : ""sv;
-                // for (const Line &line : path.polyline.lines()) {
-                for (size_t i = 0; i < path.polyline.size() - 1; i++) {
-                    assert(!path.as_polyline().has_arc()); // FIXME extrude_arc_to_xyz
-                    Line         line(path.polyline.get_point(i), path.polyline.get_point(i + 1));
-                    const double line_length = line.length() * SCALING_FACTOR;
-                    path_length += line_length;
-                    gcode += m_writer.extrude_to_xyz(this->point_to_gcode(line.b, path.z_offsets.size() > i + 1 ? path.z_offsets[i + 1] : 0),
-                                                     e_per_mm * line_length, comment);
-                }
-            }
-            gcode += this->_after_extrude(path);
-        };
+    //        // calculate extrusion length per distance unit
+    //        double e_per_mm = _compute_e_per_mm(path);
+    //        double path_length = 0.;
+    //        {
+    //            std::string_view comment = m_writer.gcode_config().gcode_comments ? description : ""sv;
+    //            // for (const Line &line : path.polyline.lines()) {
+    //            for (size_t i = 0; i < path.polyline.size() - 1; i++) {
+    //                assert(!path.as_polyline().has_arc()); // FIXME extrude_arc_to_xyz
+    //                Line         line(path.polyline.get_point(i), path.polyline.get_point(i + 1));
+    //                const double line_length = line.length() * SCALING_FACTOR;
+    //                path_length += line_length;
+    //                gcode += m_writer.extrude_to_xyz(this->point_to_gcode(line.b, path.z_offsets.size() > i + 1 ? path.z_offsets[i + 1] : 0),
+    //                                                 e_per_mm * line_length, comment);
+    //            }
+    //        }
+    //        gcode += this->_after_extrude(path);
+    //    };
     // extrude along the path
     bool saved_flipped = this->visitor_flipped;
     if (should_reverse) {
@@ -5248,13 +5248,14 @@ std::string GCodeGenerator::extrude_multi_path3D(const ExtrusionMultiPath3D &mul
         for (size_t idx_path = multipath3D.paths.size() - 1; idx_path < multipath3D.paths.size(); --idx_path) {
             assert(multipath3D.paths[idx_path].can_reverse());
             // extrude_path will reverse the path by itself, no need to copy it do to it here.
-            gcode += extrude_path(multipath3D.paths[idx_path], description, speed);
+            gcode += extrude_path_3D(multipath3D.paths[idx_path], description, speed);
         }
         add_wipe_points(multipath3D.paths, false);
     } else {
         this->visitor_flipped = false;
         for (const ExtrusionPath3D &path : multipath3D.paths) {
-            extrudepath3D(path);
+            gcode += extrude_path_3D(path, description, speed);
+            //extrudepath3D(path);
         }
         add_wipe_points(multipath3D.paths, true);
     }
@@ -7712,11 +7713,11 @@ Vec3d GCodeGenerator::point3d_to_gcode(const Vec3crd &point) const {
 }
 
 // convert a model-space scaled point into G-code coordinates
-Vec3d GCodeGenerator::point_to_gcode(const Point &point, const coord_t z_pos) const {
+Vec3d GCodeGenerator::point_to_gcode(const Point &point, const coord_t z_offset_from_current_layer_z) const {
     Vec2d extruder_offset = m_writer.current_tool_offset();
     Vec3d ret_vec(unscaled(point.x()) + m_origin.x() - extruder_offset.x(),
         unscaled(point.y()) + m_origin.y() - extruder_offset.y(),
-        unscaled(z_pos));
+        unscaled(z_offset_from_current_layer_z) + this->layer()->print_z);
     return ret_vec;
 }
 

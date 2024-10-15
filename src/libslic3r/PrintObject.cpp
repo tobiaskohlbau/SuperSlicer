@@ -999,6 +999,45 @@ const PrintRegionConfig &PrintObject::default_region_config(const PrintRegionCon
     return from_print;
 }
 
+bool PrintObject::has_brim() const {
+    bool has_brim_volume = false;
+    for (const ModelVolume *volume : this->model_object()->volumes) {
+        if (volume->is_brim_patch()) {
+            has_brim_volume = true;
+        }
+    }
+    return has_brim_volume || ((this->config().brim_width.value > 0 && this->config().brim_width_interior.value > 0)
+        && !this->has_raft());
+}
+
+Polygons PrintObject::get_brim_patch(ModelVolumeType brim_type, const PrintInstance *instance /*= nullptr*/) const {
+    Polygons polys;
+    for (const ModelVolume *v : this->model_object()->volumes) {
+        assert(v);
+        if (v->type() == brim_type) {
+            if (instance == nullptr) {
+                for (const PrintInstance &inst : this->instances()) {
+                    Polygons vol_outline;
+                    auto transl = Transform3d::Identity();
+                    assert(inst.model_instance);
+                    vol_outline = project_mesh(v->mesh().its,
+                                               transl * inst.model_instance->get_matrix() * v->get_matrix(), [] {});
+                    append(polys, vol_outline);
+                }
+            } else {
+                Polygons vol_outline;
+                auto transl = Transform3d::Identity();
+                assert(instance->model_instance);
+                vol_outline = project_mesh(v->mesh().its,
+                                            transl * instance->model_instance->get_matrix() * v->get_matrix(), [] {});
+                append(polys, vol_outline);
+            }
+        }
+    }
+    coord_t scaled_brim_resolution = std::max(SCALED_EPSILON * 10, scale_t(this->print()->config().resolution.value));
+    return ensure_valid(union_(polys), scaled_brim_resolution);
+}
+
 void PrintObject::clear_layers()
 {
     for (Layer *l : m_layers)

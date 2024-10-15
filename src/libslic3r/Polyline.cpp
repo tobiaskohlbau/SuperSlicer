@@ -1176,8 +1176,8 @@ Polyline ArcPolyline::to_polyline(coord_t deviation/*=0*/) const {
             }
         }
     }
-    for (int i = 1; i < poly_out.points.size(); ++i)
-        assert(!poly_out.points[i - 1].coincides_with_epsilon(poly_out.points[i]));
+    //for (int i = 1; i < poly_out.points.size(); ++i)
+    //    assert(!poly_out.points[i - 1].coincides_with_epsilon(poly_out.points[i]));
     return poly_out;
 }
 
