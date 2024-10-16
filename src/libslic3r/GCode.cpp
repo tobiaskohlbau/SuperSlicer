@@ -6995,7 +6995,6 @@ std::vector<coord_t> GCodeGenerator::get_travel_elevation(Polyline& travel, doub
     ElevatedTravelParams elevation_params{
         get_elevated_traval_params(travel, this->m_config, this->m_writer, this->m_travel_obstacle_tracker, this->layer()->id(), z_change)};
 
-    const double initial_elevation = this->m_writer.get_position().z();
     assert(elevation_params.lift_height == z_change);
 
     const double path_length = unscaled(travel.length());
@@ -7021,13 +7020,13 @@ std::vector<coord_t> GCodeGenerator::get_travel_elevation(Polyline& travel, doub
     ElevatedTravelFormula elevator{elevation_params};
 
     for (const DistancedPoint &point : extended_xy_path) {
-        result.emplace_back(scale_t(initial_elevation + elevator(unscaled(point.dist_from_start)) + SCALING_FACTOR / 2));
+        result.emplace_back(scale_t(elevator(unscaled(point.dist_from_start)) + SCALING_FACTOR / 2));
         new_polyline.points.push_back(std::move(point.point));
     }
 
     assert(travel.front() == new_polyline.front());
     assert(travel.back() == new_polyline.back());
-    assert(result.back() == scale_t(z_change + this->m_writer.get_position().z() + SCALING_FACTOR / 2)); // if false, enforce it.
+    assert(result.back() == scale_t(z_change + SCALING_FACTOR / 2)); // if false, enforce it.
 
     //return computation
     travel = std::move(new_polyline);
@@ -7039,8 +7038,8 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
     // Note: if last_pos is undefined, then travel.size() == 1
 
     // ramping travel?
-    //TODO: ramp up for th first half, then ramp down.
-    std::vector<coord_t> z_travel;
+    //TODO: ramp up for the first half, then ramp down.
+    std::vector<coord_t> z_relative_travel;
     if (BOOL_EXTRUDER_CONFIG(travel_ramping_lift) && m_spiral_vase_layer <= 0) {
         double z_diff_layer_and_lift = 0;
         // from layer change?
@@ -7051,12 +7050,10 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
                 double layer_change_diff = m_layer->print_z - m_writer.get_unlifted_position().z();
                 // move layer_change_diff into lift & z_diff_layer_and_lift
                 z_diff_layer_and_lift += layer_change_diff;
-                m_writer.set_lift(m_writer.get_lift() - layer_change_diff);
             } else {
                 // do a strait z-move (as we can't see the preious point.
                 gcode += m_writer.get_travel_to_z_gcode(m_layer->print_z, "strait z-move, as the travel is undefined.");
             }
-            m_new_z_target.reset();
         } else {
             assert(!m_new_z_target);
         }
@@ -7073,13 +7070,12 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
             z_diff_layer_and_lift -= needed_strait_lift;
             gcode += m_writer.travel_to_z(m_next_lift_min, "enforce lift_min");
             // travel_to_z touch the lift, so recompute it
-            m_writer.set_lift(m_writer.get_position().z() - m_layer->print_z);
             m_next_lift_min = 0;
         }
         // create the ramping
         if (z_diff_layer_and_lift > EPSILON) {
-            z_travel = get_travel_elevation(travel, z_diff_layer_and_lift);
-            assert(z_travel.size() == travel.size());
+            z_relative_travel = get_travel_elevation(travel, z_diff_layer_and_lift);
+            assert(z_relative_travel.size() == travel.size());
         }
     } else {
         // lift() has already been called
@@ -7115,13 +7111,13 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
             } else if (current_speed < max_speed) {
                 current_speed = max_speed;
             }
-            if (z_travel.empty()) {
+            if (z_relative_travel.empty()) {
                 gcode += m_writer.travel_to_xy(this->point_to_gcode(travel.points[idx_print]),
                                                current_speed > 2 ? double(uint32_t(current_speed)) : current_speed,
                                                comment);
             } else {
-                assert(idx_print < z_travel.size());
-                gcode += m_writer.travel_to_xyz(this->point_to_gcode(travel.points[idx_print], z_travel[idx_print]), true /*is lift*/,
+                assert(idx_print < z_relative_travel.size());
+                gcode += m_writer.travel_to_xyz(this->point_to_gcode(travel.points[idx_print], z_relative_travel[idx_print]), true /*is lift*/,
                                                current_speed > 2 ? double(uint32_t(current_speed)) : current_speed,
                                                comment);
             }
@@ -7150,30 +7146,30 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
         }
 
         //finish writing moves at current speed
-        if (z_travel.empty()) {
+        if (z_relative_travel.empty()) {
             for (; idx_print < travel.size(); ++idx_print) {
                 gcode += m_writer.travel_to_xy(this->point_to_gcode(travel.points[idx_print]),
                                                current_speed > 2 ? double(uint32_t(current_speed)) : current_speed,
                                                comment);
             }
         } else {
-            assert(idx_print < z_travel.size());
+            assert(idx_print < z_relative_travel.size());
             for (; idx_print < travel.size(); ++idx_print) {
-                gcode += m_writer.travel_to_xyz(this->point_to_gcode(travel.points[idx_print], z_travel[idx_print]), true /*is lift*/,
+                gcode += m_writer.travel_to_xyz(this->point_to_gcode(travel.points[idx_print], z_relative_travel[idx_print]), true /*is lift*/,
                                                 current_speed > 2 ? double(uint32_t(current_speed)) : current_speed,
                                                 comment);
             }
         }
         this->set_last_pos(travel.points.back());
     } else if (travel.size() >= 2) {
-        if (z_travel.empty()) {
+        if (z_relative_travel.empty()) {
             for (size_t i = 1; i < travel.size(); ++i) {
                 // use G1 because we rely on paths being straight (G0 may make round paths)
                 gcode += m_writer.travel_to_xy(this->point_to_gcode(travel.points[i]), 0.0, comment);
             }
         } else {
             for (size_t i = 1; i < travel.size(); ++i) {
-                gcode += m_writer.travel_to_xyz(this->point_to_gcode(travel.points[i], z_travel[i]), true /*is lift*/, 0.0, comment);
+                gcode += m_writer.travel_to_xyz(this->point_to_gcode(travel.points[i], z_relative_travel[i]), true /*is lift*/, 0.0, comment);
             }
         }
         this->set_last_pos(travel.points.back());
@@ -7181,7 +7177,12 @@ void GCodeGenerator::write_travel_to(std::string &gcode, Polyline& travel, std::
         gcode += m_writer.travel_to_xy(this->point_to_gcode(travel.back()), 0.0, comment);
     }
     
-    // ramping travel -> set lift if needed (so unlift() works)
+    // ramping travel (in a new layer) -> set lift if needed (so unlift() works)
+    if (m_new_z_target) {
+        assert(this->writer().get_position().z() + EPSILON > *m_new_z_target);
+        this->writer().set_lift(this->writer().get_position().z() - *m_new_z_target);
+        m_new_z_target.reset();
+    }
     assert(is_approx(this->writer().get_unlifted_position().z(), m_layer->print_z, EPSILON));
 }
 
