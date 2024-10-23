@@ -758,15 +758,14 @@ std::string GCodeWriter::extrude_to_xyz(const Vec3d &point, double dE, const std
     assert(std::abs(point.y()) < 120000.);
     assert(std::abs(point.z()) < 120000.);
     assert(dE == dE);
-    m_pos.x()                = point.x();
-    m_pos.y()                = point.y();
-    m_lifted                 = 0;
+    assert(point.z() >= m_pos.z());
+    m_pos = point;
+    m_lifted = 0;
      auto [/*double*/ delta_e, /*double*/ e_to_write]  = this->m_tool->extrude(dE + this->m_de_left);
     bool is_extrude  = std::abs(delta_e) > 0.00000001;
 
     GCodeG1Formatter w(this->get_default_gcode_formatter());
     w.emit_xy(Vec2d(point.x(), point.y()), m_pos_str_x, m_pos_str_y);
-    assert(point.z() >= m_pos.z());
     w.emit_z(point.z());
     this->m_de_left += dE - delta_e;
     if (is_extrude) {
@@ -787,8 +786,7 @@ std::string GCodeWriter::extrude_arc_to_xyz(const Vec3d& point, const Vec2d& cen
     assert(std::abs(center_offset.y()) < 12000000.);
     assert(std::abs(center_offset.x()) >= EPSILON * 10 || std::abs(center_offset.y()) >= EPSILON * 10);
 
-    m_pos.x()             = point.x();
-    m_pos.y()             = point.y();
+    m_pos = point;
      auto [/*double*/ delta_e, /*double*/ e_to_write]  = this->m_tool->extrude(dE + this->m_de_left);
     bool is_extrude  = std::abs(delta_e) > 0.00000001;
 

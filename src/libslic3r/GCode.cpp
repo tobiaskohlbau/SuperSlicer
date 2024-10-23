@@ -3844,12 +3844,12 @@ std::string GCodeGenerator::change_layer(double print_z) {
     if (!BOOL_EXTRUDER_CONFIG(travel_ramping_lift) || m_spiral_vase_layer > 0 || m_config.lift_min.value > print_z) {
         if (BOOL_EXTRUDER_CONFIG(retract_layer_change) && m_writer.will_move_z(print_z))
             gcode += this->retract_and_wipe();
-        gcode += m_writer.travel_to_z(print_z, std::string("move to next layer (") + std::to_string(m_layer_index) + ")");
+        gcode += m_writer.travel_to_z(print_z, std::string("move to next layer (") + std::to_string(m_layer_index) + ", "+  to_string_nozero(print_z, 5) + ")");
         assert(!m_new_z_target);
         m_new_z_target.reset();
     } else {
         assert(BOOL_EXTRUDER_CONFIG(travel_ramping_lift));
-        gcode += std::string(";move to next layer (") + std::to_string(m_layer_index) + ") delayed by travel_ramping_lift.";
+        gcode += std::string(";move to next layer (") + std::to_string(m_layer_index) + ", "+  to_string_nozero(print_z, 5)+") delayed by travel_ramping_lift.\n";
         m_new_z_target = print_z;
     }
 
@@ -6640,9 +6640,11 @@ std::string GCodeGenerator::_before_extrude(const ExtrusionPath &path, const std
     // compensate retraction
     if (m_delayed_layer_change.empty()) {
         gcode += m_writer.unlift();//this->unretract();
+        assert(is_approx(m_writer.get_position().z(), m_layer->print_z, EPSILON));
     } else {
         //check if an unlift happens
         std::string unlift = m_writer.unlift();
+        assert(is_approx(m_writer.get_position().z(), m_layer->print_z, EPSILON));
         if (unlift.empty()) {
             unlift = m_delayed_layer_change;
         }
