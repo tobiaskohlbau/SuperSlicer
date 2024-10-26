@@ -3347,7 +3347,7 @@ LayerResult GCodeGenerator::process_layer(
             const ExtrusionEntityCollection& coll = first_layer && print.skirt_first_layer() ? *print.skirt_first_layer() : print.skirt();
             for (size_t i = loops.first; i < loops.second; ++i) {
                 m_region = nullptr;
-                set_region_for_extrude(print, nullptr, gcode);
+                set_region_for_extrude(print, nullptr, nullptr, gcode);
                 // Adjust flow according to this layer's layer height.
                 this->extrude_skirt(dynamic_cast<ExtrusionLoop&>(*coll.entities()[i]),
                     // Override of skirt extrusion parameters. extrude_skirt() will fill in the extrusion width.
@@ -3369,7 +3369,7 @@ LayerResult GCodeGenerator::process_layer(
             this->set_origin(0., 0.);
             m_avoid_crossing_perimeters.use_external_mp();
             m_region = nullptr;
-            set_region_for_extrude(print, nullptr, gcode);
+            set_region_for_extrude(print, nullptr, nullptr, gcode);
             for (const ExtrusionEntity* brim_entity : print.brim().entities()) {
                 //if first layer, ask for a bigger lift for travel to each brim, to be on the safe side
                 set_extra_lift(m_last_layer_z, layer.id(), print.config(), m_writer, extruder_id);
@@ -3392,7 +3392,7 @@ LayerResult GCodeGenerator::process_layer(
             const PrintObject *print_object = layers.front().object();
             //object skirt & brim use the object settings.
             m_region = nullptr;
-            set_region_for_extrude(print, print_object, gcode);
+            set_region_for_extrude(print, print_object, nullptr, gcode);
             this->set_origin(unscale(print_object->instances()[single_object_instance_idx].shift));
             if (this->m_layer != nullptr && (this->m_layer->id() < m_config.skirt_height || print.has_infinite_skirt() )) {
                 //TODO: check if I don't need to call extrude_skirt to have arcs.
@@ -3412,7 +3412,7 @@ LayerResult GCodeGenerator::process_layer(
             const PrintObject* print_object = layers.front().object();
             //object skirt & brim use the object settings.
             m_region = nullptr;
-            set_region_for_extrude(print, print_object, gcode);
+            set_region_for_extrude(print, print_object, nullptr, gcode);
             this->set_origin(unscale(print_object->instances()[single_object_instance_idx].shift));
             if (this->m_layer != nullptr && this->m_layer->id() == 0) {
                 m_avoid_crossing_perimeters.use_external_mp(true);
@@ -4795,7 +4795,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
     m_writer.set_acceleration((uint16_t)floor(get_default_acceleration(m_config) + 0.5));
 
     //basic wipe, may be erased after if we need a more complex one
-    add_wipe_points(wipe_paths);
+    add_wipe_points(wipe_paths, false, true);
 
     //wipe for External Perimeter (and not vase)
     //TODO: move that into a wipe object's new method. (like wipe_hide_seam did for PS)
@@ -4862,7 +4862,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
                     wipe_polyline.append(path.polyline);
                 }
             }
-            m_wipe.set_path(wipe_polyline.get_arc());
+            m_wipe.set_path(wipe_polyline.get_arc(), true);
             //move
             for (ExtrusionPath& path : paths_wipe) {
                 Point center;
@@ -5120,7 +5120,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
                         wipe_path.append(poly.points[pt_idx]);
                     }
                     for (size_t pt_idx = 0; pt_idx < best_pt_idx; pt_idx++) { wipe_path.append(poly.points[pt_idx]); }
-                    m_wipe.set_path(std::move(wipe_path.get_arc()));
+                    m_wipe.set_path(std::move(wipe_path.get_arc()), true);
                 }
                 
                 if (!start_wipe.empty()) {
@@ -5146,7 +5146,7 @@ stop_print_loop:
 }
 
 template <typename THING>
-void GCodeGenerator::add_wipe_points(const std::vector<THING>& paths, bool reverse /*= true*/) {
+void GCodeGenerator::add_wipe_points(const std::vector<THING>& paths, bool reverse, bool is_loop) {
     if (m_wipe.is_enabled()) {
         ArcPolyline wipe_polyline;
         for (const THING& path : paths) {
@@ -5162,7 +5162,7 @@ void GCodeGenerator::add_wipe_points(const std::vector<THING>& paths, bool rever
         if (reverse) {
             wipe_polyline.reverse();
         }
-        m_wipe.set_path(wipe_polyline.get_arc());
+        m_wipe.set_path(wipe_polyline.get_arc(), is_loop);
     }
 }
 
@@ -5201,14 +5201,14 @@ std::string GCodeGenerator::extrude_multi_path(const ExtrusionMultiPath &multipa
                 gcode += extrude_path(path, description, speed);
             }
         }
-        add_wipe_points(multipath.paths, false);
+        add_wipe_points(multipath.paths, false, false);
     } else {
         this->visitor_flipped = false;
         // extrude along the path
         for (const ExtrusionPath& path : multipath.paths) {
             gcode += extrude_path(path, description, speed);
         }
-        add_wipe_points(multipath.paths, true);
+        add_wipe_points(multipath.paths, true, false);
     };
     this->visitor_flipped = saved_flipped;
     // reset acceleration
@@ -5260,14 +5260,14 @@ std::string GCodeGenerator::extrude_multi_path3D(const ExtrusionMultiPath3D &mul
             // extrude_path will reverse the path by itself, no need to copy it do to it here.
             gcode += extrude_path_3D(multipath3D.paths[idx_path], description, speed);
         }
-        add_wipe_points(multipath3D.paths, false);
+        add_wipe_points(multipath3D.paths, false, false);
     } else {
         this->visitor_flipped = false;
         for (const ExtrusionPath3D &path : multipath3D.paths) {
             gcode += extrude_path_3D(path, description, speed);
             //extrudepath3D(path);
         }
-        add_wipe_points(multipath3D.paths, true);
+        add_wipe_points(multipath3D.paths, true, false);
     }
     this->visitor_flipped = saved_flipped;
     // reset acceleration
@@ -5376,7 +5376,7 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
     //simplifed_path will be discarded i can reuse it to create the wipe
     if (m_wipe.is_enabled()) {
         simplifed_path.reverse();
-        m_wipe.set_path(simplifed_path.polyline.get_arc());
+        m_wipe.set_path(simplifed_path.polyline.get_arc(), false);
     }
     // reset acceleration
     m_writer.set_acceleration((uint16_t)floor(get_default_acceleration(m_config) + 0.5));
@@ -5421,14 +5421,14 @@ std::string GCodeGenerator::extrude_path_3D(const ExtrusionPath3D &path, const s
     if (m_wipe.is_enabled()) {
         ArcPolyline temp = simplifed_path.as_polyline();
         temp.reverse();
-        m_wipe.set_path(std::move(temp.get_arc()));
+        m_wipe.set_path(std::move(temp.get_arc()), false);
     }
     // reset acceleration
     m_writer.set_acceleration((uint16_t)floor(get_default_acceleration(m_config) + 0.5));
     return gcode;
 }
 
-void GCodeGenerator::set_region_for_extrude(const Print &print, const PrintObject *print_object, std::string &gcode)
+void GCodeGenerator::set_region_for_extrude(const Print &print, const PrintObject *print_object, const LayerRegion *layerm, std::string &gcode)
 {
     const PrintRegionConfig &region_config = this->m_region == nullptr ? 
         //FIXME
@@ -5462,6 +5462,12 @@ void GCodeGenerator::set_region_for_extrude(const Print &print, const PrintObjec
                                                                         region_config.region_gcode.value,
                                                                         m_writer.tool()->id(), &config) +
                                        "\n";
+    }
+    // give the boundary to wipe
+    if (layerm) {
+        m_wipe.set_boundaries(&layerm->get_cached_slices());
+    } else {
+        m_wipe.set_boundaries(nullptr);
     }
 }
 
@@ -5499,7 +5505,7 @@ void GCodeGenerator::extrude_perimeters(const ExtrudeArgs &print_args, const Lay
             if (first) {
                 first = false;
                 // Apply region-specific settings
-                set_region_for_extrude(print, nullptr, gcode);
+                set_region_for_extrude(print, nullptr, &layerm, gcode);
             }
             to_extrude.push_back(eec);
         }
@@ -5550,7 +5556,7 @@ void GCodeGenerator::extrude_infill(const ExtrudeArgs& print_args, const LayerIs
                 }
             }
             if (!temp_fill_extrusions.empty()) {
-                set_region_for_extrude(print, nullptr, gcode);
+                set_region_for_extrude(print, nullptr, &layerm, gcode);
                 for (const ExtrusionEntityReference &fill :
                      chain_extrusion_references(temp_fill_extrusions, last_pos_defined() ? &last_pos() : nullptr)) {
                     gcode += this->extrude_entity(fill, "infill"sv);
@@ -5590,7 +5596,7 @@ void GCodeGenerator::extrude_ironing(const ExtrudeArgs &print_args, const LayerI
             }
         }
         if (!temp_fill_extrusions.empty()) {
-            set_region_for_extrude(print, nullptr, gcode);
+            set_region_for_extrude(print, nullptr, &layerm, gcode);
             for (const ExtrusionEntityReference &fill : chain_extrusion_references(temp_fill_extrusions, last_pos_defined() ? &last_pos() : nullptr))
                 gcode += this->extrude_entity(fill, "ironing"sv);
         }
@@ -5620,7 +5626,7 @@ void GCodeGenerator::extrude_skirt(
 
     if (m_wipe.is_enabled())
         // Wipe will hide the seam.
-        m_wipe.set_path(loop_src.paths, false);
+        m_wipe.set_path(loop_src.paths, false, true);
 
 }
 
