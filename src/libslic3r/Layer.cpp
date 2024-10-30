@@ -681,6 +681,7 @@ void Layer::make_perimeters()
                             && config.external_perimeter_overlap == other_config.external_perimeter_overlap
                             && config.external_perimeter_speed == other_config.external_perimeter_speed // it os mandatory? can't this be set at gcode.cpp?
                             && config.external_perimeters_first == other_config.external_perimeters_first
+                            && config.external_perimeters_first_force == other_config.external_perimeters_first_force
                             && config.external_perimeters_hole  == other_config.external_perimeters_hole
                             && config.external_perimeters_nothole == other_config.external_perimeters_nothole
                             && config.external_perimeters_vase == other_config.external_perimeters_vase
