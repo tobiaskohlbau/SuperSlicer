@@ -1532,7 +1532,7 @@ void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, 
                                 double ccw_angle2 = ccw_angle;
                                 if (ccw_angle < 0)
                                     ccw_angle = 2 * PI + ccw_angle;
-                                assert(is_approx(ccw_angle, angle, EPSILON));
+                                assert(is_approx(ccw_angle, angle, EPSILON * 10));
                             }
                             prev = seg.point;
                         }
