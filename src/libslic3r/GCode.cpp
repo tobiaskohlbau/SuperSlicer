@@ -7388,6 +7388,41 @@ bool GCodeGenerator::needs_retraction(const Polyline& travel, ExtrusionRole role
     return true;
 }
 
+struct GridIntersectTest
+{
+    explicit GridIntersectTest(const EdgeGrid::Grid &grid, const Line &&line) : grid(grid), test_line(line) {}
+
+    bool operator()(coord_t iy, coord_t ix)
+    {
+        // Called with a row and colum of the grid cell, which is intersected by a line.
+        auto cell_data_range = grid.cell_data_range(iy, ix);
+        this->intersect      = false;
+        for (auto it_contour_and_segment = cell_data_range.first; it_contour_and_segment != cell_data_range.second; ++it_contour_and_segment) {
+            // End points of the line segment and their vector.
+            auto segment = grid.segment(*it_contour_and_segment);
+            if (Geometry::segments_intersect(segment.first, segment.second, test_line.a, test_line.b)) {
+                this->intersect = true;
+                return false;
+            }
+        }
+        // Continue traversing the grid along the edge.
+        return true;
+    }
+
+    const EdgeGrid::Grid &grid;
+    Line                  test_line;
+    bool                  intersect = false;
+
+};
+
+void GCodeGenerator::SliceIsland::create_hole_bb() {
+    if (this->hole_boundingboxes.size() == this->expolygon.holes.size())
+        return;
+    this->hole_boundingboxes.clear();
+    for (const Polygon &poly : this->expolygon.holes) {
+        this->hole_boundingboxes.emplace_back(poly.points);
+    }
+}
 bool GCodeGenerator::can_cross_perimeter(const Polyline& travel, bool offset)
 {
     if (m_layer != nullptr) {
@@ -7412,14 +7447,42 @@ bool GCodeGenerator::can_cross_perimeter(const Polyline& travel, bool offset)
                     BoundingBox bb{ex.contour.points};
                     // simplify as much as possible
                     for (ExPolygon &ex_simpl : ex.simplify(m_layer_slices_offseted.diameter)) {
-                        m_layer_slices_offseted.slices.emplace_back(std::move(ex_simpl), std::move(bb));
+#ifdef CAN_CROSS_PERIMETER_USE_GRID
+                        int nbpt = ex_simpl.contour.size();
+                        //for(const Polygon &hole : ex_simpl.holes) nbpt += hole.size();
+                        if (nbpt > 100) {
+                            EdgeGrid::Grid grid;
+                            grid.set_bbox(bb);
+                            // resolution: ~ 100 col/row
+                            coordf_t max_dist = std::max(bb.max.x() - bb.min.x(), bb.max.y() - bb.min.x());
+                            grid.create(ex_simpl, (max_dist/100));//m_layer_slices_offseted.diameter * 4); // What is a good value?
+                            m_layer_slices_offseted.slices.emplace_back(std::move(ex_simpl), std::move(bb), std::move(grid));
+                        } else
+#endif
+                        {
+                            m_layer_slices_offseted.slices.emplace_back(std::move(ex_simpl), std::move(bb));
+                        }
                     }
                 }
                 m_layer_slices_offseted.slices_offsetted.clear();
                 for (ExPolygon &ex : slices_offsetted) {
                     BoundingBox bb{ex.contour.points};
                     for (ExPolygon &ex_simpl : ex.simplify(m_layer_slices_offseted.diameter)) {
-                        m_layer_slices_offseted.slices_offsetted.emplace_back(std::move(ex_simpl), std::move(bb));
+#ifdef CAN_CROSS_PERIMETER_USE_GRID
+                        int nbpt = ex_simpl.contour.size();
+                        //for(const Polygon &hole : ex_simpl.holes) nbpt += hole.size();
+                        if (nbpt > 100) {
+                            EdgeGrid::Grid grid;
+                            grid.set_bbox(bb);
+                            // resolution: ~ 100 col/row
+                            coordf_t max_dist = std::max(bb.max.x() - bb.min.x(), bb.max.y() - bb.min.x());
+                            grid.create(ex_simpl, (max_dist/100));
+                            m_layer_slices_offseted.slices_offsetted.emplace_back(std::move(ex_simpl), std::move(bb), std::move(grid));
+                        } else
+#endif
+                        {
+                            m_layer_slices_offseted.slices_offsetted.emplace_back(std::move(ex_simpl), std::move(bb));
+                        }
                     }
                 }
             }
@@ -7446,36 +7509,95 @@ bool GCodeGenerator::can_cross_perimeter(const Polyline& travel, bool offset)
         //    svg.Close();
         //}
             // test if a expoly contains the entire travel
-            for (const std::pair<ExPolygon, BoundingBox> &expoly_2_bb :
+            for (SliceIsland &expoly_2_bb :
                  offset ? m_layer_slices_offseted.slices_offsetted : m_layer_slices_offseted.slices) {
                 // first check if it's roughtly inside the bb, to reject quickly.
-                auto sec = expoly_2_bb.second;
+                BoundingBox sec = expoly_2_bb.boundingbox;
                 if (travel.size() > 1 && 
-                    (expoly_2_bb.second.contains(travel.front()) ||
-                    expoly_2_bb.second.contains(travel.back()) ||
-                    expoly_2_bb.second.contains(travel.points[travel.size() / 2]) ||
-                    expoly_2_bb.second.cross(travel) )
+                    (expoly_2_bb.boundingbox.contains(travel.front()) ||
+                    expoly_2_bb.boundingbox.contains(travel.back()) ||
+                    expoly_2_bb.boundingbox.contains(travel.points[travel.size() / 2]) ||
+                    expoly_2_bb.boundingbox.cross(travel) )
                     ) {
                     // first, check if it's inside the contour (still, it can go over holes)
-                    Polylines diff_result = diff_pl(travel, expoly_2_bb.first.contour);
-                    if (diff_result.size() == 1 && diff_result.front() == travel)
-                    //if (!diff_pl(travel, expoly_2_bb.first.contour).empty())
-                        continue;
-                    //second, check if it's crossing this contour
-                    if (!diff_result.empty()) {
-                        //has_intersect = true;
+                    bool has_front = contains(expoly_2_bb.expolygon.contour, travel.front(), true);
+                    bool has_back = contains(expoly_2_bb.expolygon.contour, travel.back(), true);
+                    if (!has_front || !has_back) {
+                        // has_intersect = true;
                         return true;
                     }
+                    assert(travel.size() >= 2);
+#ifdef CAN_CROSS_PERIMETER_USE_GRID
+                    // Can't find any performance improvement, need more testing
+                    if (travel.size() == 2 && expoly_2_bb.grid) {
+                        // TODO: put each line from expoly_2_bb.first.contour into a kdtree, and only do a
+                        // line-to-line from lines that are inside the square crossed by travel
+                        GridIntersectTest tester(*expoly_2_bb.grid, Line(travel.front(), travel.back()));
+                        expoly_2_bb.grid->visit_cells_intersecting_line(tester.test_line.a, tester.test_line.b, tester);
+                        if (!tester.intersect) {
+                            // inside or outside?
+                            // whatever, check all
+                            continue;
+                        } else {
+                            // cross something, stop here.
+                            return true;
+                        }
+                        //diff_result = diff_pl(travel, expoly_2_bb.expolygon.contour); // extremly costly
+                    } else 
+#endif
+                    {
+                        //std::chrono::high_resolution_clock clock;
+#if 1
+                        // A little faster than diff_pl
+                        Line  travel_line;
+                        Point whatever;
+                        for (size_t idx_travel = travel.size() - 1; idx_travel > 0; --idx_travel) {
+                            travel_line.a = travel.points[idx_travel];
+                            travel_line.b = travel.points[idx_travel - 1];
+                            if (expoly_2_bb.expolygon.contour.first_intersection(travel_line, &whatever) ||
+                                Line(expoly_2_bb.expolygon.contour.first_point(), expoly_2_bb.expolygon.contour.last_point()).intersection(travel_line, &whatever)) {
+                                return true;
+                            }
+                        }
+                        // no intersect detected
+                        // if inside the contour, then we need to check for holes.
+                        if (!expoly_2_bb.expolygon.contour.contains(travel.front())) {
+                            // if not, go to next island
+                            continue;
+                        }
+#else
+                        Polylines diff_result = diff_pl(travel, expoly_2_bb.expolygon.contour); // extremly costly
+                        if (diff_result.size() == 1 && diff_result.front() == travel) {
+                            // outside of this contour, try with another one
+                            continue;
+                        }
+                        if (!diff_result.empty()) {
+                            //has_intersect = true;
+                            return true;
+                        }
+#endif
+                    }
+                    //second, check if it's crossing this contour
                     // third, check if it's going over a hole
                     // TODO: kdtree to get the ones interesting
                     //bool  has_intersect = false;
                     Line  travel_line;
                     Point whatever;
-                    for (const Polygon &hole : expoly_2_bb.first.holes) {
+                    expoly_2_bb.create_hole_bb();
+                    for (size_t i = 0; i < expoly_2_bb.expolygon.holes.size(); ++i) {
+                        const Polygon &hole = expoly_2_bb.expolygon.holes[i];
+                        const BoundingBox &hole_bb = expoly_2_bb.hole_boundingboxes[i];
                         m_throw_if_canceled();
                         for (size_t idx_travel = travel.size() - 1; idx_travel > 0; --idx_travel) {
                             travel_line.a = travel.points[idx_travel];
                             travel_line.b = travel.points[idx_travel - 1];
+                            if (hole.size() > 10) {
+                                // bb.cross call 4 intersections (one for each side), do it only if the hole has enough lines.
+                                if (!hole_bb.cross(travel_line) && !hole_bb.contains(travel_line.a)) {
+                                    // don't cross bb and not inside, so it's not for this hole.
+                                    continue;
+                                }
+                            }
                             if (hole.first_intersection(travel_line, &whatever) ||
                                 Line(hole.first_point(), hole.last_point()).intersection(travel_line, &whatever)) {
                                 //has_intersect = true;
