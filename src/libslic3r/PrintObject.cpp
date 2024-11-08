@@ -762,7 +762,7 @@ void PrintObject::simplify_extrusion_path()
         );
         //also simplify object skirt & brim
         if (enable_arc_fitting) {
-            coordf_t scaled_resolution = scale_d(print_config.resolution.value);
+            coordf_t scaled_resolution = scale_d(print_config.arc_fitting_resolution.get_abs_value(print_config.resolution.value));
             if (scaled_resolution == 0) scaled_resolution = enable_arc_fitting ? SCALED_EPSILON * 2 : SCALED_EPSILON;
             const ConfigOptionFloatOrPercent& arc_fitting_tolerance = print_config.arc_fitting_tolerance;
 

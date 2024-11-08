@@ -673,6 +673,15 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvancedE | comPrusa;
     def->set_default_value(new ConfigOptionEnum<ArcFittingType>(ArcFittingType::Disabled));
 
+    def = this->add("arc_fitting_resolution", coFloatOrPercent);
+    def->label = L("Arc fitting resolution");
+    def->sidetext = L("mm or %");
+    def->category = OptionCategory::firmware;
+    def->tooltip = L("When using the arc_fitting option, resolution used to simplify the path into an arc."
+    "\n can be a mm or a % of the slice resolution.");
+    def->mode = comExpert | comSuSi;
+    def->min = 0;
+    def->set_default_value(new ConfigOptionFloatOrPercent(100, true));
 
     def = this->add("arc_fitting_tolerance", coFloatOrPercent);
     def->label = L("Arc fitting tolerance");
@@ -9275,6 +9284,7 @@ void deserialize_maybe_from_prusa(std::map<t_config_option_key, std::string> set
 
 std::unordered_set<std::string> prusa_export_to_remove_keys = {
 "allow_empty_layers",
+"arc_fitting_resolution",
 "arc_fitting_tolerance",
 "avoid_crossing_not_first_layer",
 "avoid_crossing_top",
