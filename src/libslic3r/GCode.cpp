@@ -5324,45 +5324,52 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
 
     // simplify with gcode_resolution (not used yet). Simplify by jusntion deviation before the g1/sec count, to be able to use that decimation to reduce max_gcode_per_second triggers.
     // But as it can be visible on cylinders, should only be called if a max_gcode_per_second trigger may come.
-    const coordf_t scaled_min_length = scale_d(this->config().gcode_min_length.get_abs_value(m_current_perimeter_extrusion_width));
+    const coordf_t scaled_min_length = this->config().gcode_min_length.is_enabled() ?
+        scale_d(this->config().gcode_min_length.get_abs_value(m_current_perimeter_extrusion_width)) :
+        0;
     const coordf_t scaled_min_resolution = scale_d(this->config().gcode_min_resolution.get_abs_value(m_current_perimeter_extrusion_width));
-    const int32_t gcode_buffer_window = this->config().gcode_command_buffer.value;
-    const int32_t  max_gcode_per_second = this->config().max_gcode_per_second.value;
-    coordf_t scaled_mean_length = scaled_min_length * 2;
+    const int32_t max_gcode_per_second = this->config().max_gcode_per_second.is_enabled() ?
+        this->config().max_gcode_per_second.value :
+        0;
     double fan_speed;
     if (max_gcode_per_second > 0) {
+        const int32_t gcode_buffer_window = this->config().gcode_command_buffer.value;
         double speed = _compute_speed_mm_per_sec(path, speed_mm_per_sec, fan_speed, nullptr);
-        scaled_mean_length = scale_d(speed / max_gcode_per_second);
-    }
-    if (scaled_mean_length > 0 && !m_last_too_small.empty()) {
-        //ensure that it's a continous thing of the same type
-        if (m_last_too_small.last_point().distance_to_square(path.first_point()) < EPSILON * EPSILON * 4 && 
-            (path.role() == m_last_too_small.role() || m_last_too_small.length() < scale_d(m_last_too_small.width()/10))) {
-            simplifed_path.attributes_mutable().height = float(m_last_too_small.height() * m_last_too_small.length() + simplifed_path.height() * simplifed_path.length()) / float(m_last_too_small.length() + simplifed_path.length());
-            simplifed_path.attributes_mutable().mm3_per_mm = (m_last_too_small.mm3_per_mm() * m_last_too_small.length() + simplifed_path.mm3_per_mm() * simplifed_path.length()) / (m_last_too_small.length() + simplifed_path.length());
-            m_last_too_small.polyline.append(simplifed_path.polyline);
-            simplifed_path.polyline.swap(m_last_too_small.polyline);
-            assert(simplifed_path.height() == simplifed_path.height());
-            assert(simplifed_path.mm3_per_mm() == simplifed_path.mm3_per_mm());
-            m_last_too_small.polyline.clear();
-        } else {
-            //finish extrude the little thing that was left before us and incompatible with our next extrusion.
-            ExtrusionPath to_finish = m_last_too_small;
-            gcode += this->_extrude(m_last_too_small, m_last_description, m_last_speed_mm_per_sec);
-            // put this very small segment in the buffer, as it's very small
-            m_last_command_buffer_used++;
-            m_last_too_small.polyline.clear();
+        coordf_t scaled_mean_length = scale_d(speed / max_gcode_per_second);
+        if (!m_last_too_small.empty()) {
+            //ensure that it's a continous thing of the same type
+            if (m_last_too_small.last_point().distance_to_square(path.first_point()) < EPSILON * EPSILON * 4 && 
+                (path.role() == m_last_too_small.role() || m_last_too_small.length() < scale_d(m_last_too_small.width()/10))) {
+                simplifed_path.attributes_mutable().height = float(m_last_too_small.height() * m_last_too_small.length() + simplifed_path.height() * simplifed_path.length()) / float(m_last_too_small.length() + simplifed_path.length());
+                simplifed_path.attributes_mutable().mm3_per_mm = (m_last_too_small.mm3_per_mm() * m_last_too_small.length() + simplifed_path.mm3_per_mm() * simplifed_path.length()) / (m_last_too_small.length() + simplifed_path.length());
+                m_last_too_small.polyline.append(simplifed_path.polyline);
+                simplifed_path.polyline.swap(m_last_too_small.polyline);
+                assert(simplifed_path.height() == simplifed_path.height());
+                assert(simplifed_path.mm3_per_mm() == simplifed_path.mm3_per_mm());
+                m_last_too_small.polyline.clear();
+            } else {
+                //finish extrude the little thing that was left before us and incompatible with our next extrusion.
+                ExtrusionPath to_finish = m_last_too_small;
+                gcode += this->_extrude(m_last_too_small, m_last_description, m_last_speed_mm_per_sec);
+                // put this very small segment in the buffer, as it's very small
+                m_last_command_buffer_used++;
+                m_last_too_small.polyline.clear();
+            }
         }
-    }
     
-    //set at least 2 buffer space, to not over-erase first lines.
-    if (gcode_buffer_window > 2 && gcode_buffer_window - m_last_command_buffer_used < 2) {
-        m_last_command_buffer_used = gcode_buffer_window - 2;
-    }
+        //set at least 2 buffer space, to not over-erase first lines.
+        if (gcode_buffer_window > 2 && gcode_buffer_window - m_last_command_buffer_used < 2) {
+            m_last_command_buffer_used = gcode_buffer_window - 2;
+        }
 
-    //simplify
-    m_last_command_buffer_used = simplifed_path.polyline.simplify_straits(scaled_min_resolution, scaled_min_length, scaled_mean_length, gcode_buffer_window, m_last_command_buffer_used);
-    
+        //simplify
+        m_last_command_buffer_used = simplifed_path.polyline.simplify_straits(scaled_min_resolution,
+                                                                              scaled_min_length, scaled_mean_length,
+                                                                              gcode_buffer_window,
+                                                                              m_last_command_buffer_used);
+    } else if (scaled_min_length > 0) {
+        simplifed_path.polyline.simplify_straits(scaled_min_resolution, scaled_min_length);
+    }
     // if the path is too small to be printed, put in the queue to be merge with the next one.
     if (scaled_min_length > 0 && simplifed_path.length() < scaled_min_length) {
         m_last_too_small = simplifed_path;
@@ -6984,25 +6991,33 @@ Polyline GCodeGenerator::travel_to(std::string &gcode, const Point &point, Extru
     this->m_throw_if_canceled();
     //if needed, remove points to avoid surcharging the printer.
     if (this->last_pos_defined()) {
-        const coordf_t scaled_min_length = scale_d(this->config().gcode_min_length.get_abs_value(m_current_perimeter_extrusion_width));
+        const coordf_t scaled_min_length = this->config().gcode_min_length.is_enabled() ?
+            scale_d(this->config().gcode_min_length.get_abs_value(m_current_perimeter_extrusion_width)) :
+            0;
         coordf_t scaled_min_resolution = scale_d(this->config().gcode_min_resolution.get_abs_value(m_current_perimeter_extrusion_width));
         if (config().avoid_crossing_perimeters.value) {
             // min with peri/2 because it's less a problem for travels. but if travel don't cross, then they must not deviate much.
             scaled_min_resolution = std::min(scale_d(m_current_perimeter_extrusion_width / 4), scaled_min_resolution);
         }
         const int32_t gcode_buffer_window = this->config().gcode_command_buffer.value;
-        const int32_t  max_gcode_per_second = this->config().max_gcode_per_second.value;
-        coordf_t         scaled_mean_length = scaled_min_length * 2;
+        const int32_t max_gcode_per_second = this->config().max_gcode_per_second.is_enabled() ?
+            this->config().max_gcode_per_second.value :
+            0;
+        coordf_t      scaled_mean_length = 0;
         if (max_gcode_per_second > 0) {
             scaled_mean_length = scale_d(m_config.get_computed_value("travel_speed")) / max_gcode_per_second;
-        }
-        if (scaled_mean_length > 0) {
-            ArcPolyline poly_simplify(travel);
+            if (scaled_mean_length > 0) {
+                ArcPolyline poly_simplify(travel);
 
-            //TODO: this is done after the simplification of the next extrusion. can't use the 'm_last_command_buffer_used' so it must began & end with 0
-            poly_simplify.simplify_straits(scaled_min_resolution, scaled_min_length, scaled_mean_length, gcode_buffer_window, -1);
-            assert(!poly_simplify.has_arc());
-            //TODO: create arc here?
+                //TODO: this is done after the simplification of the next extrusion. can't use the 'm_last_command_buffer_used' so it must began & end with 0
+                poly_simplify.simplify_straits(scaled_min_resolution, scaled_min_length, scaled_mean_length, gcode_buffer_window, -1);
+                assert(!poly_simplify.has_arc());
+                //TODO: create arc here?
+                travel = poly_simplify.to_polyline();
+            }
+        } else if(scaled_min_length > 0) {
+            ArcPolyline poly_simplify(travel);
+            poly_simplify.simplify_straits(scaled_min_resolution, scaled_min_length);
             travel = poly_simplify.to_polyline();
         }
     }
