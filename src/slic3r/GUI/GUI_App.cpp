@@ -184,7 +184,7 @@ public:
             memDC.SelectObject(bitmap);
 
             memDC.SetFont(m_action_font);
-            ///            memDC.SetTextForeground(wxColour(237, 107, 33)); // ed6b21
+///            memDC.SetTextForeground(wxColour(237, 107, 33)); // ed6b21
             uint32_t color = Slic3r::GUI::wxGetApp().app_config->create_color(0.86f, 0.93f);
             memDC.SetTextForeground(wxColour(color & 0xFF, (color & 0xFF00) >> 8, (color & 0xFF0000) >> 16));
             memDC.DrawText(text, int(get_margin() * 2), m_action_line_y_position);
@@ -1358,13 +1358,13 @@ bool GUI_App::on_init_inner()
             boost::filesystem::path splash_screen_path = (boost::filesystem::path(Slic3r::resources_dir()) / "splashscreen" / file_name);
             if (boost::filesystem::exists(splash_screen_path)) {
                 wxString path_str = wxString::FromUTF8((splash_screen_path).string().c_str());
-                // make a bitmap with dark grey banner on the left side
+        // make a bitmap with dark grey banner on the left side
                 bmp = SplashScreen::MakeBitmap(wxBitmap(path_str, wxBITMAP_TYPE_JPEG), scrn_scaling);
 
                 //get the artist name from metadata
-                int result;
-                void** ifdArray = nullptr;
-                ExifTagNodeInfo* tag;
+            int result;
+            void** ifdArray = nullptr;
+            ExifTagNodeInfo* tag;
                 ifdArray = exif_createIfdTableArray(path_str.c_str(), &result);
                 if (result > 0 && ifdArray) {
                     tag = exif_getTagInfo(ifdArray, IFD_0TH, TAG_Artist);
@@ -1379,6 +1379,7 @@ bool GUI_App::on_init_inner()
                     }
                 }
             }
+        }
         }
 
         // Detect position (display) to show the splash screen
