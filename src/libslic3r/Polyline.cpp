@@ -1494,7 +1494,7 @@ void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, 
         // do only section without arcs
         size_t idx_start_path = 0, idx_end_mpath;
         pts.push_back(m_path.front().point);
-        path.push_back(m_path.front());
+        assert(path.empty() || path.front().radius == 0);
         for (idx_end_mpath = 1; idx_end_mpath < m_path.size(); ++idx_end_mpath) {
             path.push_back(m_path[idx_end_mpath]);
             if (m_path[idx_end_mpath].radius == 0) {
@@ -1507,26 +1507,33 @@ void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, 
                 if (pts.size() > 2) {
                     // remove strait sections
                     path.resize(idx_start_path);
+                    assert(path.empty() || path.front().radius == 0);
                     // do arc fitting
                     if (with_fitting_arc == ArcFittingType::Bambu) {
                         // === use BBS method ===
                         std::vector<Slic3r::Geometry::PathFittingData> result;
                         Slic3r::Geometry::ArcFitter::do_arc_fitting_and_simplify(pts, result, tolerance, tolerance, fit_percent_tolerance);
                         // transform PathFittingData into path
-                        size_t last_end = 0;
                         for (Slic3r::Geometry::PathFittingData data : result) {
-                            assert(data.start_point_index == last_end);
                             if (data.path_type == Slic3r::Geometry::EMovePathType::Linear_move) {
                                 // add strait section
                                 assert(path.empty() || pts[data.start_point_index] == path.back().point);
-                                for (size_t idx_pts = data.start_point_index + 1; idx_pts < data.end_point_index; ++idx_pts) {
+                                assert(path.empty() || path.back().point.coincides_with_epsilon(pts[data.start_point_index]));
+                                for (size_t idx_pts = data.start_point_index + (path.empty() ? 0 : 1); idx_pts < data.end_point_index + 1; ++idx_pts) {
                                     path.emplace_back(pts[idx_pts], 0, Geometry::ArcWelder::Orientation::Unknown);
                                 }
                             } else if (data.path_type == Slic3r::Geometry::EMovePathType::Arc_move_cw ||
                                        data.path_type == Slic3r::Geometry::EMovePathType::Arc_move_ccw) {
-                                assert(path.empty() || data.arc_data.start_point == path.back().point);
+                                if (path.empty()) {
+                                    path.emplace_back(data.arc_data.start_point, 0, Geometry::ArcWelder::Orientation::Unknown);
+                                }
+                                assert(!path.empty() && data.arc_data.start_point.coincides_with_epsilon(path.back().point));
                                 // now the arc section
-                                path.emplace_back(data.arc_data.end_point, data.arc_data.angle_radians,
+                                // point, radius, orientation
+                                assert(data.arc_data.radius > 0);
+                                assert(data.arc_data.angle_radians > 0);
+                                path.emplace_back(data.arc_data.end_point,
+                                                  data.arc_data.angle_radians > PI ? -data.arc_data.radius : data.arc_data.radius,
                                                   data.arc_data.direction == Slic3r::Geometry::ArcDirection::Arc_Dir_CCW ?
                                                       Geometry::ArcWelder::Orientation::CCW :
                                                       Geometry::ArcWelder::Orientation::CW);
@@ -1547,6 +1554,7 @@ void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, 
                                 assert(false);
                             }
                         }
+                        assert(path.empty() || path.front().radius == 0);
                     } else /* if (with_fitting_arc == ArcFittingType::ArcWelder)*/ {
                         // === use ArcWelder ===
                         Geometry::ArcWelder::Path result = Geometry::ArcWelder::fit_path(pts, tolerance, fit_percent_tolerance);
@@ -1575,8 +1583,10 @@ void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, 
                         if (path.empty()) {
                             path.insert(path.end(), result.begin(), result.end());
                         } else if(result.size() > 0) {
+                            assert(path.back().point.coincides_with_epsilon(result.front().point));
                             path.insert(path.end(), result.begin() + 1, result.end());
                         }
+                        assert(path.empty() || path.front().radius == 0);
                     }
                     assert(m_path[idx_end_mpath].point == path.back().point);
                 }
@@ -1601,6 +1611,7 @@ void ArcPolyline::make_arc(ArcFittingType with_fitting_arc, coordf_t tolerance, 
 
 bool ArcPolyline::is_valid() const {
 #ifdef _DEBUG
+    assert(m_path.empty() || m_path.front().radius == 0);
     double min_radius = 0;
     double max_radius = 0;
     Point first_center;
