@@ -3945,7 +3945,7 @@ std::string GCodeGenerator::extrude_loop_vase(const ExtrusionLoop &original_loop
     //get extrusion length
     coordf_t length = 0;
     for (ExtrusionPaths::iterator path = paths.begin(); path != paths.end(); ++path) {
-        path->simplify(std::max(coord_t(SCALED_EPSILON), scale_t(m_config.resolution.value)), false, 0); //not useful, this should have been done before.
+        //path->simplify(std::max(coord_t(SCALED_EPSILON), scale_t(m_config.resolution.value)), false, 0); //not useful, this should have been done before.
         length += path->length() * SCALING_FACTOR;
     }
 
@@ -4676,21 +4676,7 @@ std::string GCodeGenerator::extrude_loop(const ExtrusionLoop &original_loop, con
         }
     }
     if (building_paths.empty()) return "";
-    
-    //simplify paths
-    for (size_t i=0 ; i< building_paths.size(); ++i){
-        ExtrusionPath &path = building_paths[i];
-        path.simplify(std::max(coord_t(SCALED_EPSILON), scale_t(m_config.resolution.value)), false, 0);
-        if (path.length() < std::max(coord_t(SCALED_EPSILON), scale_t(m_config.resolution.value))) {
-            if (i + 1 < building_paths.size()) {
-                building_paths[i+1].polyline.set_points().front() = path.polyline.front();
-                building_paths.erase(building_paths.begin() + i);
-                --i;
-            } else {
-                building_paths.pop_back();
-            }
-        }
-    }
+
     const ExtrusionPaths& wipe_paths = building_paths;
     for (const ExtrusionPath &path : wipe_paths)
         for (int i = 1; i < path.polyline.size(); ++i)
