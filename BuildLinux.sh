@@ -79,7 +79,7 @@ function check_operating_system() {
 
 function check_available_memory_and_disk() {
     FREE_MEM_GB=$(free -g -t | grep 'Mem:' | rev | cut -d" " -f1 | rev)
-    MIN_MEM_GB=5
+    MIN_MEM_GB=3
 
     FREE_DISK_KB=$(df -k . | tail -1 | awk '{print $4}')
     MIN_DISK_KB=$((10 * 1024 * 1024))
@@ -238,6 +238,10 @@ then
     else
         cp libwxscintilla-3.2.a libwx_gtk3u_scintilla-3.2.a
     fi
+    echo "> ls destdir/usr/local/lib"
+    ls -al .
+    echo "> ls ROOT/deps/build/destdir/usr/local/lib"
+    ls -al $ROOT/deps/build/destdir/usr/local/lib
     popd > /dev/null
     popd > /dev/null
     echo -e "\n ... done\n"
@@ -311,6 +315,14 @@ then
     pushd build  > /dev/null
     $ROOT/build/src/BuildLinuxImage.sh -a $FORCE_GTK2
     popd  > /dev/null
+    echo "> ls ROOT"
+    ls -al $ROOT
+    echo "> ls ROOT/build"
+    ls -al $ROOT/build
+    echo "> ls -al ROOT/build/bin"
+    ls -al $ROOT/build/bin
+    echo "> ls -al ROOT/build/src"
+    ls -al $ROOT/build/src
 fi
 
 if [[ -n "$BUILD_IMAGE" ]]
@@ -320,4 +332,12 @@ then
     pushd build  > /dev/null
     $ROOT/build/src/BuildLinuxImage.sh -i $FORCE_GTK2
     popd  > /dev/null
+    echo "> ls ROOT"
+    ls -al $ROOT
+    echo "> ls ROOT/build"
+    ls -al $ROOT/build
+    echo "> ls -al ROOT/build/bin"
+    ls -al $ROOT/build/bin
+    echo "> ls -al ROOT/build/src"
+    ls -al $ROOT/build/src
 fi
