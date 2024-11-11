@@ -35,15 +35,25 @@ case $( "${OS_FOUND}" | tr '[:upper:]' '[:lower:]') in
     ;;
 esac
 
+export TERM=xterm-256color 
+
 # check operating system
+BUILD_IMG_ARCH=""
 echo
 if [ $TARGET_OS == "macos" ]; then
     if [ $(uname -m) == "x86_64" ]; then
         echo -e "$(tput setaf 2)macOS x86_64 found$(tput sgr0)\n"
-        Processor="64"
+        Processor="x86_64"
+        BUILD_IMG_ARCH="-x"
+		echo "x86 BUILD_IMG_ARCH=${BUILD_IMG_ARCH}\n"
     elif [[ $(uname -m) == "i386" || $(uname -m) == "i686" ]]; then
+        echo "$(tput setaf 2)macOS i386 / i686 (arm?) found$(tput sgr0)\n"
+        Processor="arm64"
+        BUILD_IMG_ARCH="-a"
+    elif [ $(uname -m) == "arm64" ]; then
         echo "$(tput setaf 2)macOS arm64 found$(tput sgr0)\n"
-        Processor="64"
+        Processor="arm64"
+        BUILD_IMG_ARCH="-a"
     else
         echo "$(tput setaf 1)Unsupported OS: macOS $(uname -m)"
         exit -1
@@ -53,6 +63,7 @@ else
     echo -e "Please use a macOS.$(tput sgr0)\n"
     exit -1
 fi
+echo "BUILD_IMG_ARCH=${BUILD_IMG_ARCH}\n"
 
 # Check if CMake is installed
 export CMAKE_INSTALLED=`which cmake`
@@ -72,11 +83,11 @@ while getopts ":idaxbhcsltwr" opt; do
         ;;
     a )
         BUILD_ARCH="arm64"
-        BUILD_IMG="-a"
+        BUILD_IMG_ARCH="-a"
         ;;
     x )
         BUILD_ARCH="x86_64"
-        BUILD_IMG="-x"
+        BUILD_IMG_ARCH="-x"
         ;;
     b )
         BUILD_DEBUG="1"
@@ -134,6 +145,7 @@ then
 fi
 
 echo "Build architecture: ${BUILD_ARCH}"
+echo "Build IMG_ARCH=${BUILD_IMG_ARCH}\n"
 
 echo "\n/Applications:\n"
 ls /Applications
@@ -158,6 +170,15 @@ export LIBRARY_PATH=$LIBRARY_PATH:$(brew --prefix zstd)/lib/
 
 export $BUILD_ARCH
 export LIBRARY_PATH=$LIBRARY_PATH:$(brew --prefix zstd)/lib/
+
+echo -n "[1/9] Updating submodules..."
+{
+    # update submodule profiles
+    pushd resources/profiles
+    git submodule update --init
+    popd
+} #> $ROOT/build/Build.log # Capture all command output
+echo "done"
 
 echo -n "[2/9] Changing date in version..."
 {
@@ -200,7 +221,7 @@ then
     echo -e "[4/9] Building dependencies ...\n"
 
     # make deps
-    make -j1
+    make -j$NCORES
 
     echo -e "\n ... done\n"
 
@@ -239,7 +260,7 @@ then
     # mkdir build
     if [ ! -d "build" ]
     then
-    mkdir build
+        mkdir build
     fi
 
     BUILD_ARGS=""
@@ -286,20 +307,16 @@ then
 
     popd  > /dev/null
     echo -e "\n ... done"
-
-    # Give proper permissions to script
-    chmod 755 $ROOT/build/src/BuildMacOSImage.sh
-
-    pushd build  > /dev/null
-    $ROOT/build/src/BuildMacOSImage.sh -p $BUILD_IMG
     popd  > /dev/null
 
-    echo "ls ROOT"
-    ls $ROOT
-    echo "ls ROOT/build"
-    ls $ROOT/build
-    echo "ls -al ROOT/build/src"
-    ls -al $ROOT/build/src    
+    echo "> ls ROOT"
+    ls -al $ROOT
+    echo "> ls ROOT/build"
+    ls -al $ROOT/build
+    echo "> ls -al ROOT/build/bin"
+    ls -al $ROOT/build/bin
+    echo "> ls -al ROOT/build/src"
+    ls -al $ROOT/build/src
 fi
 
 if [[ -n "$BUILD_IMAGE" ]]
@@ -307,7 +324,15 @@ then
     # Give proper permissions to script
     chmod 755 $ROOT/build/src/BuildMacOSImage.sh
     pushd build  > /dev/null
-    $ROOT/build/src/BuildMacOSImage.sh -i $BUILD_IMG
+    echo "> $ROOT/build/src/BuildMacOSImage.sh -i ${BUILD_IMG_ARCH}"
+    $ROOT/build/src/BuildMacOSImage.sh -i $BUILD_IMG_ARCH
     popd  > /dev/null
+    echo "> ls ROOT"
+    ls -al $ROOT
+    echo "> ls ROOT/build"
+    ls -al $ROOT/build
+    echo "> ls -al ROOT/build/bin"
+    ls -al $ROOT/build/bin
+    echo "> ls -al ROOT/build/src"
+    ls -al $ROOT/build/src
 fi
-
