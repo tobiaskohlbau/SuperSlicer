@@ -6,41 +6,18 @@ on:
       - rc
 
 jobs:
-  build_dep:
-    runs-on: ubuntu-20.04
-
-    steps:
-    - uses: actions/checkout@v3
-    - uses: ilammy/msvc-dev-cmd@v1
-    - name: mkdir in deps
-      run: mkdir deps/build
-    - name: dep cache
-      id: cache-action
-      uses: actions/cache@v3
-      with:
-        key: ubu_gtk2_2.7
-        path: deps/build/destdir
-    - if: steps.cache-action.outputs.cache-hit != 'true'
-      name: build deps if new cache
-      run: ./BuildLinux.sh -gd
 
   build:
     runs-on: ubuntu-20.04
-    needs: build_dep
 
     steps:
     - uses: actions/checkout@v3
       with:
         ref: 'rc'
-    - name: update submodule profiles
-      working-directory: ./resources/profiles
-      run: git submodule update --init
     - name: Setup cmake
       uses: jwlawson/actions-setup-cmake@v1.13
       with:
         cmake-version: '3.16.x'
-    - name: change date in version
-      run: sed -i "s/+UNKNOWN//" version.inc
     - name: update clock
       run: sudo hwclock -s
     - name: update apt

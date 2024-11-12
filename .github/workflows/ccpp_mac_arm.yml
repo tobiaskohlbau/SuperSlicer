@@ -52,7 +52,7 @@ jobs:
         key: macos_arm_2.7
         path: deps/build/destdir
     - name: build slicer
-      run: ./BuildMacOS.sh -asi
+      run: ./BuildMacOS.sh -asiv
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:

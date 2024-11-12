@@ -73,7 +73,7 @@ then
     exit -1
 fi
 
-while getopts ":idaxbhcsltwr" opt; do
+while getopts ":idaxbhcsltwrv" opt; do
   case ${opt} in
     i )
         BUILD_IMAGE="1"
@@ -104,6 +104,9 @@ while getopts ":idaxbhcsltwr" opt; do
     c)
         BUILD_XCODE="1"
         ;;
+	v )
+		VERSION_DATE="1"
+		;;
     w )
         BUILD_WIPE="1"
         ;;
@@ -122,6 +125,7 @@ while getopts ":idaxbhcsltwr" opt; do
         echo "   -s: build Slic3r/SuperSlicer"
         echo "   -t: build tests (in combination with -s)"
         echo "   -i: generate DMG image (optional)\n"
+		echo "   -v: change the version 'UNKNOWN' to the date of the day"
         exit 0
         ;;
   esac
@@ -180,13 +184,18 @@ echo -n "[1/9] Updating submodules..."
 } #> $ROOT/build/Build.log # Capture all command output
 echo "done"
 
-echo -n "[2/9] Changing date in version..."
-{
+
+if [[ -n "$VERSION_DATE" ]]
+then
+	echo -n "[2/9] Changing date in version ... "
     # change date in version
-    sed "s/+UNKNOWN/_$(date '+%F')/" version.inc > version.date.inc
-    mv version.date.inc version.inc
-} #&> $ROOT/build/Build.log # Capture all command output
-echo "done"
+    sed "s/+UNKNOWN/-$(date '+%F')/" version.inc > version.date.inc
+	echo "done"
+else
+	echo -n "[2/9] Changing date in version: remove UNKNOWN ... "
+    sed "s/+UNKNOWN//" version.inc > version.date.inc
+	echo "done"
+fi
 
 if [[ -n "$BUILD_DEPS" ]]
 then

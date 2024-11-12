@@ -41,9 +41,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: update submodule profiles
-      working-directory: ./resources/profiles
-      run: git submodule update --init
     - name: check autoconf version
       run: autoconf --version
     - name: update automake for mpfr
@@ -62,7 +59,7 @@ jobs:
         key: macos_intel_2.7
         path: deps/build/destdir
     - name: build slicer
-      run: ./BuildMacOS.sh -si
+      run: ./BuildMacOS.sh -siv
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:

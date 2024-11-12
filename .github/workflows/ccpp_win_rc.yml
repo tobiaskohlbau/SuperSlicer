@@ -39,7 +39,9 @@ jobs:
       run: git submodule update --init
     - name: change date in version
       shell: powershell
-      run: (Get-Content version.inc) | Foreach-Object {$_ -replace "\+UNKNOWN", ("")} | Set-Content version.inc
+      run: |
+        copy version.inc version.date.inc
+        (Get-Content version.date.inc) | Foreach-Object {$_ -replace "\+UNKNOWN", ("")} | Set-Content version.date.inc
     - name: dep cache
       id: cache-action
       uses: actions/cache@v3
