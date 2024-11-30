@@ -927,6 +927,12 @@ void ArcPolyline::split_at(coordf_t distance, ArcPolyline &p1, ArcPolyline &p2) 
             p2.set_back(back());
         }
     }
+    //check if the last p1 segment is long enough
+    if (p1.size() > 3 && p1.back().distance_to_square(p1.get_point(p1.size()-2)) < SCALED_EPSILON * SCALED_EPSILON) {
+        //to short of a segment, move the previous point (even if arc, should be short enough of a move)
+        p1.m_path[p1.size()-2].point = p1.back();
+        p1.m_path.pop_back();
+    }
     assert(p1.is_valid());
     assert(p2.is_valid());
 }
