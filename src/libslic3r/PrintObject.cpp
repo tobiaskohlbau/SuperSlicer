@@ -1436,6 +1436,7 @@ bool PrintObject::invalidate_state_by_config_options(
             || opt_key == "infill_dense"
             || opt_key == "infill_dense_algo"
             || opt_key == "infill_only_where_needed"
+            || opt_key == "internal_bridge_expansion"
             || opt_key == "ironing"
             || opt_key == "ironing_type"
             || opt_key == "over_bridge_flow_ratio"
@@ -3881,7 +3882,11 @@ void PrintObject::bridge_over_infill()
 
                     Polygons bridging_area;
                     double bridging_angle = 0;
-                    {
+                    if (!candidate.region->region().config().internal_bridge_expansion.value) {
+                        bridging_area = area_to_be_bridge;
+                        bridging_angle = determine_bridging_angle(area_to_be_bridge, to_lines(boundary_plines),
+                                                                    InfillPattern::ipLine);
+                    } else {
 
 #ifdef DEBUG_BRIDGE_OVER_INFILL
                         int r = rand();
