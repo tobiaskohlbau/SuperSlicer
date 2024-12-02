@@ -1272,11 +1272,11 @@ Polylines Layer::generate_sparse_infill_polylines_for_anchoring(FillAdaptive::Oc
 
         // apply half spacing using this flow's own spacing and generate infill
         FillParams params = surface_fill.params;
-        params.density           = float(0.01 * surface_fill.params.density);
+        params.density           = surface_fill.params.density;
         params.dont_adjust       = false; //  surface_fill.params.dont_adjust;
         params.anchor_length     = surface_fill.params.anchor_length;
         params.anchor_length_max = surface_fill.params.anchor_length_max;
-        params.fill_resolution        = resolution;
+        params.fill_resolution   = resolution;
         params.use_arachne       = false;
         params.layer_height      = layerm.layer()->height;
 
