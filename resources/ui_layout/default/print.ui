@@ -213,6 +213,7 @@ group:Reducing printing time
 		setting:tags$Advanced$Expert$SuSi:sidetext_width$0:label$_:infill_dense
 		setting:width$20:infill_dense_algo
 	end_line
+	setting:internal_bridge_expansion
 group:sidetext_width$5:Infill angle
 	line:Angle
 		setting:label_width$8:width$5:fill_angle
