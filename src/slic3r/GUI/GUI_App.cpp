@@ -1727,7 +1727,7 @@ void GUI_App::init_ui_colours()
     m_color_hovered_btn             = is_dark_mode ? wxColour(253, 111, 40) : wxColour(252, 77, 1);
     // text color on hover on any button
     m_color_hovered_btn_label       = is_dark_mode ? wxColour(253, 111, 40) : wxColour(252, 77, 1);
-    // m_color_default_btn_label: color of the ok button text in normal state (default button when clickingon enter).
+    // m_color_default_btn_label: color of the ok button text in normal state (default button when clickingon enter). And graph line
     m_color_default_btn_label       = is_dark_mode ? wxColour(255, 181, 100): wxColour(203, 61, 0);
     // Prusa: is_dark_mode ? wxColour(95, 73, 62)   : wxColour(228, 220, 216); (f2ba9e & e4dcd8) SV: 35 37 ;  5 90
     m_color_selected_btn_bg         = is_dark_mode ? wxColour(95, 73, 62)   : wxColour(228, 220, 216);
