@@ -307,7 +307,7 @@ void AppConfig::set_defaults()
            set("notify_release", "all"); // or "none" or "release"
 
         if (get("auto_switch_preview").empty())
-            set("auto_switch_preview", "2");
+            set("auto_switch_preview", "platter");
 
 #if ENABLE_ENVIRONMENT_MAP
         if (get("use_environment_map").empty())
@@ -601,7 +601,7 @@ void AppConfig::init_ui_layout() {
 
     //set ui_layout to a default if not set
     if (current_name.empty() || !find_current) {
-        auto default_layout = datadir_map.find("Standard");
+         auto default_layout = datadir_map.find("Standard");
         if (default_layout == datadir_map.end()) {
             default_layout = datadir_map.find("Default");
         }

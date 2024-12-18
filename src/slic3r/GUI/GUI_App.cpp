@@ -84,6 +84,7 @@
 #include "CalibrationBridgeDialog.hpp"
 #include "CalibrationCubeDialog.hpp"
 #include "CalibrationFlowDialog.hpp"
+#include "CalibrationFlowSpeedDialog.hpp"
 #include "CalibrationOverBridgeDialog.hpp"
 #include "CalibrationTempDialog.hpp"
 #include "CalibrationRetractionDialog.hpp"
@@ -1316,6 +1317,31 @@ bool GUI_App::on_init_inner()
             m_last_app_conf_lower_version = true;
     }
     
+    if (std::string current_layout_name = app_config->get("ui_layout"); current_layout_name != "Standard") {
+        AppConfig::LayoutEntry my_layout = app_config->get_ui_layout();
+        // check if version is up to date
+        std::optional<Semver> current_ver = Semver::parse(app_config->get("version"));
+        assert(current_ver);
+        current_ver->set_patch(0); // disregard patch
+        if (my_layout.version < *current_ver) {
+            current_ver = Semver::parse(app_config->get("version"));
+            //ask if the user don't want to switch to an up-to-date layout.
+            wxString title = format_wxstr(_L("You are opening %1% version %2%."), SLIC3R_APP_NAME, SLIC3R_VERSION);
+            wxString message = format_wxstr(_L(
+                    "The active gui layout used '%1%' was created for version %2%,"
+                    "\nwhile the current software is now at version %3%."
+                    "\nDo you prefer to continue using this outdated layout?"
+                    "\nIf not, the layout will be rolled back to the '%4%' layout"
+                ), my_layout.name, my_layout.version.to_string(), current_ver->to_string(), "Default");
+            InfoDialog msg(nullptr, title, message, true, wxYES_NO);
+            if (msg.ShowModal() == wxID_NO) {
+                app_config->set("ui_layout", "Standard");
+                // reload (colors, tags)
+                app_config->save();
+                app_config->load();
+            }
+        }
+    }
 
 #ifdef _MSW_DARK_MODE
     // app_config can be updated in check_older_app_config(), so check if dark_color_mode and sys_menu_enabled was changed
@@ -1697,8 +1723,11 @@ void GUI_App::init_ui_colours()
     m_color_highlight_label_default = is_dark_mode ? wxColour(230, 230, 230): wxSystemSettings::GetColour(/*wxSYS_COLOUR_HIGHLIGHTTEXT*/wxSYS_COLOUR_WINDOWTEXT);
     m_color_highlight_default       = is_dark_mode ? wxColour(78, 78, 78)   : wxSystemSettings::GetColour(wxSYS_COLOUR_3DLIGHT);
     // Prusa: is_dark_mode ? wxColour(253, 111, 40) : wxColour(252, 77, 1); (fd6f28 & fc4d01) SV: 84 99 ; 100 99 (with light hue diff)
-    m_color_hovered_btn_label       = is_dark_mode ? wxColour(253, 111, 240) : wxColour(252, 77, 1);
-    m_color_hovered_btn             = is_dark_mode ? wxColour(253, 111, 240) : wxColour(252, 77, 1);
+    // custom background color for the notbook (tab) button
+    m_color_hovered_btn             = is_dark_mode ? wxColour(253, 111, 40) : wxColour(252, 77, 1);
+    // text color on hover on any button
+    m_color_hovered_btn_label       = is_dark_mode ? wxColour(253, 111, 40) : wxColour(252, 77, 1);
+    // m_color_default_btn_label: color of the ok button text in normal state (default button when clickingon enter). And graph line
     m_color_default_btn_label       = is_dark_mode ? wxColour(255, 181, 100): wxColour(203, 61, 0);
     // Prusa: is_dark_mode ? wxColour(95, 73, 62)   : wxColour(228, 220, 216); (f2ba9e & e4dcd8) SV: 35 37 ;  5 90
     m_color_selected_btn_bg         = is_dark_mode ? wxColour(95, 73, 62)   : wxColour(228, 220, 216);
@@ -1754,10 +1783,12 @@ void GUI_App::update_ui_colours_from_appconfig()
 
 #ifdef _WIN32
     bool is_dark_mode = dark_mode();
-    m_color_hovered_btn_label = is_dark_mode ? color_from_int(app_config->create_color(0.84f, 0.99f, AppConfig::EAppColorType::Highlight)) :
-        color_from_int(app_config->create_color(1.00f, 0.99f, AppConfig::EAppColorType::Highlight));
     m_color_hovered_btn = is_dark_mode ? color_from_int(app_config->create_color(0.84f, 0.99f, AppConfig::EAppColorType::Main)) :
         color_from_int(app_config->create_color(1.00f, 0.99f, AppConfig::EAppColorType::Main));
+    m_color_hovered_btn_label = is_dark_mode ? color_from_int(app_config->create_color(0.84f, 0.99f, AppConfig::EAppColorType::Highlight)) :
+        color_from_int(app_config->create_color(1.00f, 0.99f, AppConfig::EAppColorType::Highlight));
+    m_color_default_btn_label = is_dark_mode ? color_from_int(app_config->create_color(0.9f, 0.80f, AppConfig::EAppColorType::Highlight)) :
+        color_from_int(app_config->create_color(1.00f, 0.80f, AppConfig::EAppColorType::Highlight));
     m_color_selected_btn_bg = is_dark_mode ? color_from_int(app_config->create_color(0.35f, 0.37f, AppConfig::EAppColorType::Main)) :
         color_from_int(app_config->create_color(0.05f, 0.9f, AppConfig::EAppColorType::Main));
 #endif
@@ -2273,6 +2304,10 @@ void GUI_App::bed_leveling_dialog()
 void GUI_App::flow_ratio_dialog()
 {
     change_calibration_dialog(nullptr, new CalibrationFlowDialog(this, mainframe));
+}
+void GUI_App::flow_speed_dialog()
+{
+    change_calibration_dialog(nullptr, new CalibrationFlowSpeedDialog(this, mainframe));
 }
 void GUI_App::over_bridge_dialog()
 {
@@ -2913,7 +2948,7 @@ void GUI_App::add_config_menu(wxMenuBar *menu)
         // TODO: for when we're able to flash dictionaries
         // local_menu->Append(config_id_base + FirmwareMenuDict,  _L("Flash Language File"),    _L("Upload a language dictionary file into a Prusa printer"));
     }
-    local_menu->Append(config_id_base + ConfigMenuWifiConfigFile, _L("Wi-Fi Configuration File"), _L("Generate a file to be loaded by a Prusa printer to configure its Wi-Fi connection."));
+    local_menu->Append(config_id_base + ConfigMenuWifiConfigFile, _L("Prusa Wi-Fi Configuration File"), _L("Generate a file to be loaded by a Prusa printer to configure its Wi-Fi connection."));
 
     local_menu->Bind(wxEVT_MENU, [this, config_id_base](wxEvent &event) {
         switch (event.GetId() - config_id_base) {
