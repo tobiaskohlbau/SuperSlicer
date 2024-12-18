@@ -4845,6 +4845,9 @@ ProcessSurfaceResult PerimeterGenerator::process_classic(const Parameters &     
                     peri_entities = this->_traverse_loops_classic(params, contours.front(), thin_walls_thickpolys);
                 }
             }
+        } else {
+            // no loop perimeter : ignore perimeter_loop and thin_walls_merge
+            peri_entities = this->_traverse_loops_classic(params, {}, thin_walls_thickpolys);
         }
 #if _DEBUG
         LoopAssertVisitor visitor;
