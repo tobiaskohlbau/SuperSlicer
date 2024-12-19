@@ -1938,7 +1938,7 @@ void MainFrame::init_menubar_as_editor()
             _L("Deselects all objects"), [this](wxCommandEvent&) { m_plater->deselect_all(); },
             "", nullptr, [this](){return can_deselect() && can_change_view(); }, this);
         editMenu->AppendSeparator();
-        append_menu_item(editMenu, wxID_ANY, _L("&Delete Selected") + "\t" + /*hotkey_delete don't use the real escape key, or it will prevent del on some fields*/ "Dèl",
+        append_menu_item(editMenu, wxID_ANY, _L("&Delete Selected") + "\t" + /*hotkey_delete don't use the real escape key, or it will prevent del on some fields*/ "Del",
             _L("Deletes the current selection"),[this](wxCommandEvent&) { m_plater->remove_selected(); },
             "remove_menu", nullptr, [this](){return can_delete() && can_change_view(); }, this);
         append_menu_item(editMenu, wxID_ANY, _L("Delete &All") + "\tCtrl+" + hotkey_delete,

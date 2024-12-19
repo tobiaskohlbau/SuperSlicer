@@ -637,14 +637,15 @@ void PreferencesDialog::build()
 
 		append_bool_option(m_tabid_2_optgroups.back().back(), "single_instance",
 #if __APPLE__
-			L("Allow just a single PrusaSlicer instance"),
-			L("On OSX there is always only one instance of app running by default. However it is allowed to run multiple instances "
-			  "of same app from the command line. In such case this settings will allow only one instance."),
+            Slic3r::GUI::format(L("Allow just a single %1% instance"), SLIC3R_APP_NAME),
+            L("On OSX there is always only one instance of app running by default. However it is allowed to run multiple instances "
+              "of same app from the command line. In such case this settings will allow only one instance."),
 #else
-			L("Allow just a single PrusaSlicer instance"),
-			L("If this is enabled, when starting PrusaSlicer and another instance of the same PrusaSlicer is already running, that instance will be reactivated instead."),
+            Slic3r::GUI::format(L("Allow just a single %1% instance"),SLIC3R_APP_NAME),
+            Slic3r::GUI::format(L("If this is enabled, when starting %1% and another instance of the same %1% is "
+                               "already running, that instance will be reactivated instead."), SLIC3R_APP_NAME),
 #endif
-		app_config->has("single_instance") ? app_config->get_bool("single_instance") : false );
+            app_config->has("single_instance") ? app_config->get_bool("single_instance") : false);
 
 
 		append_bool_option(m_tabid_2_optgroups.back().back(), "default_action_on_dirty_project",
