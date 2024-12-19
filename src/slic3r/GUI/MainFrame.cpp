@@ -1352,7 +1352,7 @@ void MainFrame::add_created_tab(Tab* panel)
 {
     panel->create_preset_tab();
 
-    const auto printer_tech = wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology();
+    const auto printer_tech = wxGetApp().get_current_printer_technology();
 
     if (panel->supports_printer_technology(printer_tech)) {
 #ifdef _USE_CUSTOM_NOTEBOOK
@@ -2429,7 +2429,7 @@ void MainFrame::load_configbundle(wxString file/* = wxEmptyString*/, bool from_p
 // Also update the plater with the new presets.
 void MainFrame::load_config(const DynamicPrintConfig& config)
 {
-	PrinterTechnology printer_technology = wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology();
+	PrinterTechnology printer_technology = wxGetApp().get_current_printer_technology();
 	const auto       *opt_printer_technology = config.option<ConfigOptionEnum<PrinterTechnology>>("printer_technology");
 	if (opt_printer_technology != nullptr && opt_printer_technology->value != printer_technology) {
 		printer_technology = opt_printer_technology->value;

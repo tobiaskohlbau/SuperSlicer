@@ -1256,9 +1256,7 @@ void PreferencesDialog::accept(wxEvent&)
         }
     }
 
-	for (std::map<std::string, std::string>::iterator it = m_values.begin(); it != m_values.end(); ++it)
-		app_config->set(it->first, it->second);
-
+	// `set_label_clr_default` BEFORE  `app_config->set` to set the right color (light or dark mode)
 	if (wxGetApp().is_editor()) {
 		wxGetApp().set_label_clr_sys(m_sys_colour->GetColour());
 		wxGetApp().set_label_clr_modified(m_mod_colour->GetColour());
@@ -1268,6 +1266,9 @@ void PreferencesDialog::accept(wxEvent&)
 		wxGetApp().set_mode_palette(m_mode_palette);
 #endif
 	}
+	
+	for (std::map<std::string, std::string>::iterator it = m_values.begin(); it != m_values.end(); ++it)
+		app_config->set(it->first, it->second);
 
 	EndModal(wxID_OK);
 
@@ -1387,6 +1388,19 @@ void PreferencesDialog::on_sys_color_changed()
 #ifdef _WIN32
 	wxGetApp().UpdateDlgDarkUI(this);
 #endif
+	// update settings_text_color_widget
+    if (m_sys_colour) {
+        m_sys_colour->SetColour(wxGetApp().get_label_clr_sys());
+    }
+    if (m_mod_colour) {
+        m_mod_colour->SetColour(wxGetApp().get_label_clr_modified());
+    }
+    if (m_def_colour) {
+        m_def_colour->SetColour(wxGetApp().get_label_clr_default());
+    }
+    if (m_phony_colour) {
+        m_phony_colour->SetColour(wxGetApp().get_label_clr_phony());
+    }
 }
 
 void PreferencesDialog::layout()

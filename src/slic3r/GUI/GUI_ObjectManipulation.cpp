@@ -647,6 +647,8 @@ void ObjectManipulation::update_ui_from_settings()
                 axis_id = 0;
         }
     }
+
+    // change mirror button dark/clear mode
 }
 
 void ObjectManipulation::update_settings_value(const Selection& selection)

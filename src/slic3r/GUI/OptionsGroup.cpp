@@ -765,7 +765,7 @@ void ConfigOptionsGroup::back_to_config_value(const DynamicPrintConfig& config, 
             // Fucntion doesn't exists, reset the fields from the 'depends'
             // reset in all tabs
             // first set_key_value
-            PrinterTechnology printer_technology = wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology();
+            PrinterTechnology printer_technology = wxGetApp().get_current_printer_technology();
             std::vector<Tab*> tab_list = wxGetApp().tabs_list;
             std::set<size_t> modified_tabs_idx;
             for (const std::string& dep_key : it_opt->second.opt.depends_on) {
