@@ -3056,7 +3056,7 @@ void GCodeViewer::load_shells(const Print& print)
 
 void GCodeViewer::load_wipetower_shell(const Print& print)
 {
-    if (wxGetApp().get_current_printer_technology() == ptFFF && print.is_step_done(psWipeTower)) {
+    if (wxGetApp().preset_bundle->printers.get_edited_preset().printer_technology() == ptFFF && print.is_step_done(psWipeTower)) {
         // adds wipe tower's volume
         const double max_z = print.objects()[0]->model_object()->get_model()->max_z();
         const PrintConfig& config = print.config();
@@ -4624,7 +4624,9 @@ void GCodeViewer::render_legend(float& legend_height)
                         }
                         else if (i == items_cnt) {
                             append_item(EItemType::Rect, cp_values[i - 1].first, above_label(cp_values[i - 1].second.second));
+                            continue;
                         }
+                        assert(i < items_cnt);
                         append_item(EItemType::Rect, cp_values[i - 1].first, fromto_label(cp_values[i - 1].second.second, cp_values[i].second.first));
                     }
                 }
@@ -4652,7 +4654,7 @@ void GCodeViewer::render_legend(float& legend_height)
                                 append_item(EItemType::Rect, cp_values[j - 1].first, label);
                                 continue;
                             }
-
+                            assert(j < items_cnt);
                             label += " " + fromto_label(cp_values[j - 1].second.second, cp_values[j].second.first);
                             append_item(EItemType::Rect, cp_values[j - 1].first, label);
                         }

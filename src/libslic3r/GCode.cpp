@@ -2858,6 +2858,7 @@ namespace ProcessLayer
 
         DynamicConfig cfg;
         cfg.set_key_value("color_change_extruder", new ConfigOptionInt(color_change_extruder));
+        cfg.set_key_value("next_color", new ConfigOptionString(custom_gcode.color));
         cfg.set_key_value("next_colour", new ConfigOptionString(custom_gcode.color));
         if (single_extruder_multi_material && !single_extruder_printer && color_change_extruder >= 0 && first_extruder_id != unsigned(color_change_extruder)) {
             //! FIXME_in_fw show message during print pause
