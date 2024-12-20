@@ -3931,37 +3931,35 @@ bool GUI_App::check_updates(const bool verbose)
     return true;
 }
 
-bool GUI_App::open_browser_with_warning_dialog(const wxString& url, wxWindow* parent/* = nullptr*/, bool force_remember_choice /*= true*/, int flags/* = 0*/)
+bool GUI_App::open_browser_with_warning_dialog(const wxString& url,  wxWindow* parent/* = nullptr*/, bool allow_remember_choice/* = true*/, int flags/* = 0*/)
 {
-    bool launch = true;
 
     // warning dialog containes a "Remember my choice" checkbox
     std::string option_key = "suppress_hyperlinks";
-    if (force_remember_choice || app_config->get(option_key).empty()) {
-        if (app_config->get(option_key).empty()) {
-            RichMessageDialog dialog(parent, _L("Open hyperlink in default browser?"), format(_L("%1%: Open hyperlink"), SLIC3R_APP_NAME), wxICON_QUESTION | wxYES_NO);
-            dialog.ShowCheckBox(_L("Remember my choice"));
-            auto answer = dialog.ShowModal();
-            launch = answer == wxID_YES;
-            if (dialog.IsCheckBoxChecked()) {
-                wxString preferences_item = _L("Suppress to open hyperlink in browser");
-                wxString msg =
-                    format(_L("%1% will remember your choice."), SLIC3R_APP_NAME) + "\n\n" +
-                    _L("You will not be asked about it again on hyperlinks hovering.") + "\n\n" +
-                    format_wxstr(_L("Visit \"Preferences\" and check \"%1%\"\nto changes your choice."), preferences_item);
+    std::string option_value = app_config->get(option_key);
+    bool launch = true;
+    if (allow_remember_choice && option_value != "allow") {
+        RichMessageDialog dialog(parent, _L("Open hyperlink in default browser?"), format(_L("%1%: Open hyperlink"), SLIC3R_APP_NAME), wxICON_QUESTION | wxYES_NO);
+        dialog.ShowCheckBox(_L("Remember my choice"));
+        auto answer = dialog.ShowModal();
+        launch = answer == wxID_YES;
+        if (dialog.IsCheckBoxChecked()) {
+            this->open_preferences("suppress_hyperlinks", "General");
+            //wxString preferences_item = _L("Suppress to open hyperlink in browser");
+            //wxString msg =
+            //    format(_L("%1% will remember your choice."), SLIC3R_APP_NAME) + "\n\n" +
+            //    _L("You will not be asked about it again on hyperlinks hovering.") + "\n\n" +
+            //    format_wxstr(_L("Visit \"Preferences\" and check \"%1%\"\nto changes your choice."), preferences_item);
 
-                MessageDialog msg_dlg(parent, msg, format(_L("%1%: Don't ask me again"), SLIC3R_APP_NAME), wxOK | wxCANCEL | wxICON_INFORMATION);
-                if (msg_dlg.ShowModal() == wxID_CANCEL)
-                    return false;
-                app_config->set(option_key, answer == wxID_NO ? "1" : "0");
-            }
+            //MessageDialog msg_dlg(parent, msg, format(_L("%1%: Don't ask me again"), SLIC3R_APP_NAME), wxOK | wxCANCEL | wxICON_INFORMATION);
+            //if (msg_dlg.ShowModal() == wxID_CANCEL)
+            //    return false;
+            //app_config->set(option_key, answer == wxID_NO ? "1" : "0");
         }
-        if (launch)
-            launch = !app_config->get_bool(option_key);
     }
     // warning dialog doesn't containe a "Remember my choice" checkbox
     // and will be shown only when "Suppress to open hyperlink in browser" is ON.
-    else if (app_config->get_bool(option_key)) {
+    else if (option_value != "allow") {
         MessageDialog dialog(parent, _L("Open hyperlink in default browser?"), format(_L("%1%: Open hyperlink"), SLIC3R_APP_NAME), wxICON_QUESTION | wxYES_NO);
         launch = dialog.ShowModal() == wxID_YES;
     }
