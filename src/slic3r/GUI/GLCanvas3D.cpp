@@ -7860,7 +7860,9 @@ void GLCanvas3D::_set_warning_notification(EWarning warning, bool state)
                     const unsigned int obj_idx = std::distance(objects.begin(), iter);
                     wxGetApp().CallAfter([obj_idx, layer_id]() {
                         wxGetApp().plater()->set_preview_layers_slider_values_range(0, layer_id - 1);
-                        wxGetApp().plater()->select_view_3D("3D");
+                        // select_tab also set the notebook, it's better.
+                        //wxGetApp().plater()->select_view_3D("3D");
+                        wxGetApp().mainframe->select_tab(MainFrame::ETabType::Plater3D);
                         wxGetApp().plater()->canvas3D()->reset_all_gizmos();
                         wxGetApp().plater()->canvas3D()->get_selection().add_object(obj_idx, true);
                         wxGetApp().obj_list()->update_selections();
