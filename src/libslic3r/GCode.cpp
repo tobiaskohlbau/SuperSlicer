@@ -1852,8 +1852,6 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
                 } else {
                     set_extra_lift(0, 0, print.config(), m_writer, initial_extruder_id);
                 }
-                //reinit the seam placer on the new object
-                m_seam_placer.init(print, this->m_throw_if_canceled);
                 // Reset the cooling buffer internal state (the current position, feed rate, accelerations).
                 m_cooling_buffer->reset(this->writer().get_position());
                 m_cooling_buffer->set_current_extruder(initial_extruder_id);
@@ -3093,14 +3091,16 @@ LayerResult GCodeGenerator::process_layer(
         }
         assert(l.layer() == nullptr || layer_id == l.layer()->id());
     }
-    assert(layer_id < layer_count());
     assert(object_layer != nullptr || support_layer != nullptr);
     const Layer         &layer         = (object_layer != nullptr) ? *object_layer : *support_layer;
+    assert(layer_id < layer_count() || !layer.has_extrusions());
     assert(layer_id == layer.id());
     LayerResult   result { {}, layer.id(), false, last_layer, false};
     if (layer_tools.extruders.empty())
         // Nothing to extrude.
         return result;
+
+    assert(layer_id < layer_count());
 
     if (object_layer) {
         if (single_object_instance_idx != size_t(-1)) {
