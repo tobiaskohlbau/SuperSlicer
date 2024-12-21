@@ -1628,7 +1628,7 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->max = 100;
     def->mode = comExpert | comSuSi;
-    def->set_default_value(new ConfigOptionPercent(100));
+    def->set_default_value(new ConfigOptionPercent(80));
 
     def = this->add("external_perimeter_acceleration", coFloatOrPercent);
     def->label = L("External");
@@ -3031,7 +3031,7 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->max = 100;
     def->mode = comExpert | comSuSi;
-    def->set_default_value(new ConfigOptionPercent(100));
+    def->set_default_value(new ConfigOptionPercent(80));
 
     def = this->add("gap_fill_speed", coFloatOrPercent);
     def->label = L("Gap fill");
@@ -4611,7 +4611,7 @@ void PrintConfigDef::init_fff_params()
     def->min = 0;
     def->max = 100;
     def->mode = comExpert | comSuSi;
-    def->set_default_value(new ConfigOptionPercent(100));
+    def->set_default_value(new ConfigOptionPercent(80));
 
     def = this->add("perimeter_reverse", coBool);
     def->label = L("Perimeter reversal on even layers");
