@@ -1739,9 +1739,6 @@ void GCodeGenerator::_do_export(Print& print_mod, GCodeOutputStream &file, Thumb
     // Write the custom start G-code
     preamble_to_put_start_layer.append(start_gcode).append("\n");
 
-    if (!last_pos_defined()) {
-        set_last_pos({0, 0});
-    }
 
     // Disable fan.
     if ((initial_extruder_id != (uint16_t) -1) && !this->config().start_gcode_manual && print.config().disable_fan_first_layers.get_at(initial_extruder_id)) {
@@ -2858,6 +2855,7 @@ namespace ProcessLayer
 
         DynamicConfig cfg;
         cfg.set_key_value("color_change_extruder", new ConfigOptionInt(color_change_extruder));
+        cfg.set_key_value("next_color", new ConfigOptionString(custom_gcode.color));
         cfg.set_key_value("next_colour", new ConfigOptionString(custom_gcode.color));
         if (single_extruder_multi_material && !single_extruder_printer && color_change_extruder >= 0 && first_extruder_id != unsigned(color_change_extruder)) {
             //! FIXME_in_fw show message during print pause
@@ -5359,12 +5357,11 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
             assert(simplifed_path.height() == simplifed_path.height());
             assert(simplifed_path.mm3_per_mm() == simplifed_path.mm3_per_mm());
             assert(simplifed_path.width() == simplifed_path.width());
-            m_last_too_small.polyline.clear();
         } else {
             //finish extrude the little thing that was left before us and incompatible with our next extrusion.
-            ExtrusionPath to_finish = m_last_too_small;
             gcode += this->_extrude(m_last_too_small, m_last_description, m_last_speed_mm_per_sec);
         }
+        m_last_too_small.polyline.clear();
     }
 
     // if the path is too small to be printed, put in the queue to be merge with the next one.
@@ -5381,7 +5378,7 @@ std::string GCodeGenerator::extrude_path(const ExtrusionPath &path, const std::s
     // simplify with gcode_resolution (not used yet). Simplify by junction deviation before the g1/sec count, to be able to use that decimation to reduce max_gcode_per_second triggers.
     // But as it can be visible on cylinders, should only be called if a max_gcode_per_second trigger may come.
     const coordf_t scaled_min_resolution = scale_d(this->config().gcode_min_resolution.get_abs_value(m_current_perimeter_extrusion_width));
-    const int32_t max_gcode_per_second = this->config().max_gcode_per_second.is_enabled() ?
+    const int32_t max_gcode_per_second = (false /*disabled*/&& this->config().max_gcode_per_second.is_enabled()) ?
         this->config().max_gcode_per_second.value :
         0;
     double fan_speed;
