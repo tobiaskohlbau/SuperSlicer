@@ -2693,7 +2693,8 @@ void PrintConfigDef::init_fff_params()
     def->full_label = L("First layer bed temperature");
     def->category = OptionCategory::filament;
     def->tooltip = L("Heated build plate temperature for the first layer. Set zero to disable "
-                   "bed temperature control commands in the output.");
+                   "bed temperature control commands in the output."
+                   "\nSet to 0 to prevent the slicer to do any first layer bed command.");
     def->sidetext = L("°C");
     def->max = 0;
     def->max = 300;
@@ -4735,6 +4736,29 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionInt(0));
 
+    def = this->add("print_bed_temperature", coInt);
+    def->label = L("Bed Temperature");
+    def->category = OptionCategory::filament;
+    def->tooltip = L("Override the temperature of the bed."
+                    "\nIf disabled, uses the highest bed temperature from all filaments used in the first layer.");
+    def->sidetext = L("°C");
+    def->min = 0;
+    def->mode = comExpert | comSuSi;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_defaultoption(new ConfigOptionInt(60)));
+
+    def = this->add("print_first_layer_bed_temperature", coInt);
+    def->label = L("First Layer Bed Temperature");
+    def->category = OptionCategory::filament;
+    def->tooltip = L("Override the temperature of the bed while printing the first layer."
+                    "\nIf disabled, uses the highest first layer bed temperature from all filaments used in the first layer."
+                    "\nSet to 0 to prevent the slicer to do any first layer bed command.");
+    def->sidetext = L("°C");
+    def->min = 0;
+    def->mode = comExpert | comSuSi;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_defaultoption(new ConfigOptionInt(60)));
+
     def = this->add("print_first_layer_temperature", coInt);
     def->label = L("First Layer Temperature");
     def->category = OptionCategory::filament;
@@ -5695,7 +5719,7 @@ void PrintConfigDef::init_fff_params()
     def = this->add("start_gcode", coString);
     def->label = L("Start G-code");
     def->tooltip = L("This start procedure is inserted at the beginning, possibly prepended by "
-                     "temperature-changing commands. See 'autoemit_temperature_commands'.");
+                     "temperature-changing commands and others. See 'autoemit_temperature_commands' and 'start_gcode_manual'.");
     def->multiline = true;
     def->full_width = true;
     def->height = 12;
@@ -9540,7 +9564,9 @@ std::unordered_set<std::string> prusa_export_to_remove_keys = {
 "perimeter_round_corners",
 "perimeters_hole",
 "priming_position",
+"print_bed_temperature",
 "print_extrusion_multiplier",
+"print_first_layer_bed_temperature",
 "print_first_layer_temperature",
 "print_custom_variables",
 "print_retract_length",
@@ -11520,9 +11546,10 @@ static std::map<t_custom_gcode_key, t_config_option_keys> s_CustomGcodeSpecificP
     {"end_filament_gcode",      {"layer_num", "layer_z", "max_layer_z", "filament_extruder_id", "previous_extruder", "next_extruder"}},
     {"milling_toolchange_start_gcode", {"layer_num", "layer_z", "previous_layer_z", "max_layer_z", "previous_extruder", "next_extruder"}},
     {"milling_toolchange_end_gcode",   {"layer_num", "layer_z", "previous_layer_z", "max_layer_z", "previous_extruder", "next_extruder"}},
+    {"start_gcode",             {"start_gcode_bed_temperature"}},
     {"end_gcode",               {"layer_num", "layer_z", "max_layer_z", "filament_extruder_id", "previous_extruder", "next_extruder"}},
-    {"before_layer_gcode",      {"layer_num", "layer_z", "previous_layer_z", "max_layer_z"}},
-    {"layer_gcode",             {"layer_num", "layer_z", "previous_layer_z", "max_layer_z"}},
+    {"before_layer_gcode",      {"layer_num", "layer_z", "previous_layer_z", "max_layer_z", "gcode_bed_temperature"}},
+    {"layer_gcode",             {"layer_num", "layer_z", "previous_layer_z", "max_layer_z", "gcode_bed_temperature"}},
     {"feature_gcode",           {"layer_num", "layer_z", "max_layer_z", "previous_extrusion_role", "next_extrusion_role", /*deprecated*/"extrusion_role", "last_extrusion_role" /*deprecated*/}},
     {"toolchange_gcode",        {"layer_num", "layer_z", "max_layer_z", "previous_extruder", "next_extruder", "toolchange_z"}},
     {"color_change_gcode",      {"color_change_extruder", "next_color", "next_colour"}},
@@ -11588,6 +11615,14 @@ CustomGcodeSpecificConfigDef::CustomGcodeSpecificConfigDef()
     // TRN: This is a label in custom g-code editor dialog, belonging to color_change_extruder. Denoted index of the extruder for which color change is performed.
     def->label = L("Next colour");
     def->tooltip = L("Next colour to display when a colour change is performed, in #ffffff format.");
+    
+    def = this->add("start_gcode_bed_temperature", coInt);
+    def->label = L("Computed bed temperature for first layer");
+    def->tooltip = L("It's the 'print_first_layer_bed_temperature' if defined or the maximum of the 'first_layer_bed_temperature' used in the first layer.");
+
+    def = this->add("gcode_bed_temperature", coInt);
+    def->label = L("Computed bed temperature");
+    def->tooltip = L("It's the 'print_bed_temperature' if defined or the maximum of the 'bed_temperature'.");
 }
 
 const CustomGcodeSpecificConfigDef custom_gcode_specific_config_def;
