@@ -73,6 +73,7 @@
 
 #include "SVG.hpp"
 
+#include <fast_float/fast_float.h>
 #include <tbb/parallel_for.h>
 
 // Intel redesigned some TBB interface considerably when merging TBB with their oneAPI set of libraries, see GH #7332.
@@ -2451,6 +2452,59 @@ void GCodeGenerator::process_layers(
     output_stream.find_replace_enable();
 }
 
+std::vector<std::optional<double>> compute_new_position(GCodeGenerator &gcodegen, const std::string &gcode) {
+    GCodeReader parser;
+    std::vector<std::optional<double>> position;
+    position.resize(3);
+    if (gcodegen.last_pos_defined()) {
+        position[0] = gcodegen.writer().get_position().x();
+        position[1] = gcodegen.writer().get_position().y();
+        position[2] = gcodegen.writer().get_position().z() + gcodegen.writer().config.z_offset.value;
+    }
+    if(gcode.empty()) return position;
+    parser.parse_buffer(gcode,
+        [&position](GCodeReader& reader, const GCodeReader::GCodeLine& line) {
+        const std::string_view  cmd = line.cmd();
+        if (!cmd.empty()
+        // T is known
+         && !(cmd[0] == 'T' && cmd.size() == 1)) {
+            //Gxxx & Mxxx are known,
+            if (cmd[0] == 'G' || cmd[0] == 'M') {
+                // Try to parse the numeric value.
+                double v = 0.;
+                auto [pend, ec] = fast_float::from_chars((&cmd.front())+1, (&cmd.back())+1, v);
+                if (pend == (&cmd.back())+1) {
+                    // The axis value has been parsed correctly.
+                    //TODO: encounter G1XYZ -> reset current position to that
+                    if (cmd[0] == 'G' && (v >= 1 && v <= 3)) {
+                        if (line.has(Axis::X)) {
+                            position[0] = line.value(Axis::X);
+                        }
+                        if (line.has(Axis::Y)) {
+                            position[1] = line.value(Axis::Y);
+                        }
+                        if (line.has(Axis::Z)) {
+                            position[2] = line.value(Axis::Z);
+                        }
+                    }
+                } else {
+                    // nan => unknown thing
+                    position[0].reset();
+                    position[1].reset();
+                    position[2].reset();
+                }
+            } else {
+                // rest is not
+                position[0].reset();
+                position[1].reset();
+                position[2].reset();
+            }
+        }
+        });
+
+    return position;
+}
+
 std::string GCodeGenerator::placeholder_parser_process(
     const std::string   &name,
     const std::string   &templ,
@@ -2504,6 +2558,24 @@ std::string GCodeGenerator::placeholder_parser_process(
             // Update G-code writer. (without z_offset)
             m_writer.update_position_by_lift({ pos[0], pos[1], pos[2] - m_writer.config.z_offset.value});
             this->set_last_pos(this->gcode_to_point({pos[0], pos[1]}));
+        } else {
+            // TODO that shouldn't be necessary if we didn't detect any problematic lines.
+            auto position_vec = compute_new_position(*this, output);
+            if (!position_vec[0] || !position_vec[1]) {
+                // to be sure, we should invalidate the position. But for simplicity's sake, we will keep the last good pos we know.
+                // this->unset_last_pos();
+            } else {
+                //update our current position
+                Point pt_updated = this->gcode_to_point({pos[0], pos[1]});
+                if (!is_approx(pt_updated.x(), last_pos().x(), SCALED_EPSILON) ||
+                    !is_approx(pt_updated.y(), last_pos().y(), SCALED_EPSILON)) {
+                    set_last_pos(pt_updated);
+                }
+            }
+            // Update G-code writer. (without z_offset)
+            m_writer.update_position_by_lift({position_vec[0] ? *position_vec[0] : m_writer.get_position().x(),
+                                              position_vec[1] ? *position_vec[1] : m_writer.get_position().y(),
+                 position_vec[2] ? *position_vec[2] - m_writer.config.z_offset.value : m_writer.get_position().z()});
         }
 
         for (const Extruder &e : m_writer.extruders()) {
