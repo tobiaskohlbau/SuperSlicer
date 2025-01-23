@@ -4735,6 +4735,47 @@ void PrintConfigDef::init_fff_params()
     def->mode = comAdvancedE | comSuSi;
     def->set_default_value(new ConfigOptionInt(0));
 
+    def = this->add("print_first_layer_temperature", coInt);
+    def->label = L("First Layer Temperature");
+    def->category = OptionCategory::filament;
+    def->tooltip = L("Override the temperature of the extruder (for the first layer). Avoid making too many changes, it won't stop for cooling/heating."
+        "May only work on Height range modifiers.");
+    def->sidetext = L("°C");
+    def->min = 0;
+    def->mode = comExpert | comSuSi;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_defaultoption(new ConfigOptionInt(200)));
+
+    def = this->add("print_retract_length", coFloat);
+    def->label = L("Retraction length");
+    def->category = OptionCategory::filament;
+    def->tooltip = L("Override the retract_length setting from the printer config. Used for calibration.");
+    def->min = 0;
+    def->mode = comExpert | comSuSi;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_defaultoption(new ConfigOptionFloat(0)));
+
+    def = this->add("print_retract_lift", coFloat);
+    def->label = L("Z-lift override");
+    def->category = OptionCategory::filament;
+    def->tooltip = L("Set the new lift-z value for this override. 0 will disable the z-lift. -& to disable. May only work on Height range modifiers.");
+    def->sidetext = L("mm");
+    def->min = 0;
+    def->mode = comExpert | comSuSi;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_defaultoption(new ConfigOptionFloat(0)));
+
+    def = this->add("print_temperature", coInt);
+    def->label = L("Temperature");
+    def->category = OptionCategory::filament;
+    def->tooltip = L("Override the temperature of the extruder. Avoid making too many changes, it won't stop for cooling/heating."
+        " May only work on Height range modifiers.");
+    def->sidetext = L("°C");
+    def->min = 0;
+    def->mode = comExpert | comSuSi;
+    def->can_be_disabled = true;
+    def->set_default_value(disable_defaultoption(new ConfigOptionInt(200)));
+
     def = this->add("printer_model", coString);
     def->label = L("Printer type");
     def->tooltip = L("Type of the printer.");
@@ -5000,26 +5041,6 @@ void PrintConfigDef::init_fff_params()
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionFloats { 2. });
 
-    def = this->add("print_retract_length", coFloat);
-    def->label = L("Retraction length");
-    def->category = OptionCategory::filament;
-    def->tooltip = L("Override the retract_length setting from the printer config. Used for calibration. Set negative to disable");
-    def->mode = comExpert | comSuSi;
-    def->set_default_value(new ConfigOptionFloat( -1.f));
-
-    def = this->add("retract_length_toolchange", coFloats);
-    def->label = L("Length");
-    def->full_label = L("Retraction Length (Toolchange)");
-    def->tooltip = L("When retraction is triggered before changing tool, filament is pulled back "
-                   "by the specified amount (the length is measured on raw filament, before it enters "
-                   "the extruder)."
-                    "\nNote: This value will be unretracted when this extruder will load the next time.");
-    def->sidetext = L("mm (zero to disable)");
-    def->mode = comExpert | comPrusa;
-    def->min = 0;
-    def->is_vector_extruder = true;
-    def->set_default_value(new ConfigOptionFloats { 10. });
-
     def = this->add("travel_slope", coFloats);
     def->label = L("Ramping slope angle");
     def->tooltip = L("Minimum slope of the ramp in the initial phase of the travel."
@@ -5062,6 +5083,19 @@ void PrintConfigDef::init_fff_params()
     def->mode = comExpert | comPrusa;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionBools{false});
+
+    def = this->add("retract_length_toolchange", coFloats);
+    def->label = L("Length");
+    def->full_label = L("Retraction Length (Toolchange)");
+    def->tooltip = L("When retraction is triggered before changing tool, filament is pulled back "
+                   "by the specified amount (the length is measured on raw filament, before it enters "
+                   "the extruder)."
+                    "\nNote: This value will be unretracted when this extruder will load the next time.");
+    def->sidetext = L("mm (zero to disable)");
+    def->mode = comExpert | comPrusa;
+    def->min = 0;
+    def->is_vector_extruder = true;
+    def->set_default_value(new ConfigOptionFloats { 10. });
 
     def = this->add("retract_lift", coFloats);
     def->label = L("Lift height");
@@ -6339,30 +6373,6 @@ void PrintConfigDef::init_fff_params()
     def->mode = comSimpleAE | comPrusa;
     def->is_vector_extruder = true;
     def->set_default_value(new ConfigOptionInts { 200 });
-
-    def = this->add("print_temperature", coInt);
-    def->label = L("Temperature");
-    def->category = OptionCategory::filament;
-    def->tooltip = L("Override the temperature of the extruder. Avoid making too many changes, it won't stop for cooling/heating. 0 to disable. May only work on Height range modifiers.");
-    def->mode = comExpert | comSuSi;
-    def->min = 0;
-    def->set_default_value(new ConfigOptionInt(0));
-
-    def = this->add("print_first_layer_temperature", coInt);
-    def->label = L("First Layer Temperature");
-    def->category = OptionCategory::filament;
-    def->tooltip = L("Override the temperature of the extruder (for the first layer). Avoid making too many changes, it won't stop for cooling/heating. 0 to disable (using print_temperature if defined). May only work on Height range modifiers.");
-    def->mode = comExpert | comSuSi;
-    def->min = 0;
-    def->set_default_value(new ConfigOptionInt(0));
-
-    def = this->add("print_retract_lift", coFloat);
-    def->label = L("Z-lift override");
-    def->category = OptionCategory::filament;
-    def->tooltip = L("Set the new lift-z value for this override. 0 will disable the z-lift. -& to disable. May only work on Height range modifiers.");
-    def->sidetext = L("mm");
-    def->mode = comExpert | comSuSi;
-    def->set_default_value(new ConfigOptionFloat(-1));
 
     def = this->add("thin_perimeters", coPercent);
     def->label = L("Overlapping external perimeter");
@@ -8715,21 +8725,19 @@ void PrintConfigDef::handle_legacy(t_config_option_key &opt_key, std::string &va
         }
     }
     if ("0" == value) {
-        if ("max_layer_height" == opt_key) {
-            value = "!75%";
-        }
-        if ("gcode_min_length" == opt_key) {
-            value = "!0";
-        }
-        if ("max_gcode_per_second" == opt_key) {
-            value = "!0";
-        }
+        if ("max_layer_height" == opt_key) {value = "!75%";}
+        if ("gcode_min_length" == opt_key) {value = "!0";}
+        if ("max_gcode_per_second" == opt_key) {value = "!0";}
+        if ("print_temperature" == opt_key) {value = "!0";}
+        if ("print_first_layer_temperature" == opt_key) {value = "!0";}
     }
     if (value == "-1") {
         if ("overhangs_bridge_threshold" == opt_key) {value = "!0";}
         if ("overhangs_bridge_upper_layers" == opt_key) {value = "!2";}
         if ("perimeters_hole" == opt_key) {value = "!0";}
         if ("support_material_bottom_interface_layers" == opt_key) {value = "!0";}
+        if ("print_retract_length" == opt_key) {value = "!200";}
+        if ("print_retract_lift" == opt_key) {value = "!200";}
     }
     //nil-> disabled
     if (value.find("e+") != std::string::npos) {

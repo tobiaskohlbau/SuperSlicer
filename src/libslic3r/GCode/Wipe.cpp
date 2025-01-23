@@ -117,7 +117,7 @@ std::string Wipe::wipe(GCodeGenerator &gcodegen, bool toolchange)
     double retract_length = extruder.retract_length();
     if (toolchange) {
         retract_length = extruder.retract_length_toolchange();
-    } else if (gcodegen.writer().print_region_config() && gcodegen.writer().print_region_config()->print_retract_length.value >= 0) {
+    } else if (gcodegen.writer().print_region_config() && gcodegen.writer().print_region_config()->print_retract_length.is_enabled()) {
         retract_length = gcodegen.writer().print_region_config()->print_retract_length.value;
     }
     retract_length = extruder.retract_to_go(retract_length);

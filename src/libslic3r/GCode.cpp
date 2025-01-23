@@ -3556,9 +3556,9 @@ void GCodeGenerator::process_layer_single_object(
                         if (ee->role() == role)
                             entities_cache.emplace_back(ee);
                 }
-                if (m_layer != nullptr && m_layer->bottom_z() < EPSILON && m_config.print_first_layer_temperature.value > 0)
+                if (m_layer != nullptr && m_layer->bottom_z() < EPSILON && m_config.print_first_layer_temperature.is_enabled())
                     gcode += m_writer.set_temperature(m_config.print_first_layer_temperature.value, false, m_writer.tool()->id());
-                else if (m_config.print_temperature.value > 0)
+                else if (m_config.print_temperature.is_enabled())
                     gcode += m_writer.set_temperature(m_config.print_temperature.value, false, m_writer.tool()->id());
                 else if (m_layer != nullptr && m_layer->bottom_z() < EPSILON && m_config.first_layer_temperature.get_at(m_writer.tool()->id()) > 0)
                         gcode += m_writer.set_temperature(m_config.first_layer_temperature.get_at(m_writer.tool()->id()), false, m_writer.tool()->id());
@@ -5483,9 +5483,9 @@ void GCodeGenerator::set_region_for_extrude(const Print &print, const PrintObjec
     // perimeter-only (but won't break anything if done also in infill & ironing): pass needed settings to seam placer.
     m_seam_placer.external_perimeters_first = region_config.external_perimeters_first.value;
     // temperature override from region
-    if (m_layer != nullptr && m_layer->bottom_z() < EPSILON && m_config.print_first_layer_temperature.value > 0) {
+    if (m_layer != nullptr && m_layer->bottom_z() < EPSILON && m_config.print_first_layer_temperature.is_enabled()) {
         gcode += m_writer.set_temperature(m_config.print_first_layer_temperature.value, false, m_writer.tool()->id());
-    } else if (m_config.print_temperature > 0) {
+    } else if (m_config.print_temperature.is_enabled()) {
         gcode += m_writer.set_temperature(m_config.print_temperature.value, false, m_writer.tool()->id());
     } else if (m_layer != nullptr && m_layer->bottom_z() < EPSILON && m_config.first_layer_temperature.get_at(m_writer.tool()->id()) > 0) {
         gcode += m_writer.set_temperature(m_config.first_layer_temperature.get_at(m_writer.tool()->id()), false, m_writer.tool()->id());
@@ -7686,12 +7686,13 @@ std::string GCodeGenerator::retract_and_wipe(bool toolchange, bool inhibit_lift)
     if (!inhibit_lift) {
         // check if need to lift
         bool need_lift = !m_writer.tool_is_extruder() || toolchange
-            || (BOOL_EXTRUDER_CONFIG(retract_lift_first_layer) && m_config.print_retract_lift.value != 0 && this->m_layer_index == 0)
+            || (BOOL_EXTRUDER_CONFIG(retract_lift_first_layer) && this->m_layer_index == 0 &&
+                (!m_config.print_retract_lift.is_enabled() || m_config.print_retract_lift.value > 0))
             || this->m_writer.get_extra_lift() > 0;
         bool last_fill_extusion_role_top_infill = (this->m_last_extrusion_role == GCodeExtrusionRole::TopSolidInfill || this->m_last_extrusion_role == GCodeExtrusionRole::Ironing);
         if (this->m_last_extrusion_role == GCodeExtrusionRole::GapFill)
             last_fill_extusion_role_top_infill = (this->m_last_not_gapfill_extrusion_role == GCodeExtrusionRole::TopSolidInfill || this->m_last_not_gapfill_extrusion_role == GCodeExtrusionRole::Ironing);
-        if (!need_lift && m_config.print_retract_lift.value != 0) {
+        if (!need_lift && (!m_config.print_retract_lift.is_enabled() || m_config.print_retract_lift.value > 0)) {
             if (EXTRUDER_CONFIG_WITH_DEFAULT(retract_lift_top, "") == "Not on top")
                 need_lift = !last_fill_extusion_role_top_infill;
             else if (EXTRUDER_CONFIG_WITH_DEFAULT(retract_lift_top, "") == "Only on top")

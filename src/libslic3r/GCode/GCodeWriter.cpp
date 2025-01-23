@@ -860,7 +860,7 @@ std::string GCodeWriter::retract(bool before_wipe)
     if (factor == 0)
         return "";
     //check for override
-    if (config_region && config_region->print_retract_length >= 0) {
+    if (config_region && config_region->print_retract_length.is_enabled()) {
         return this->_retract(
             factor * config_region->print_retract_length,
             factor * m_tool->retract_restart_extra(),
@@ -1004,7 +1004,7 @@ double GCodeWriter::will_lift(int layer_id) const{
     }
 
     // use the override if set
-    if (target_lift > 0 && config_region && config_region->print_retract_lift.value >= 0) {
+    if (target_lift > 0 && config_region && config_region->print_retract_lift.is_enabled()) {
         target_lift = config_region->print_retract_lift.value;
     }
 
