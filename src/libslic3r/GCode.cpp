@@ -5305,7 +5305,8 @@ void GCodeGenerator::use(const ExtrusionEntityCollection &collection) {
         }
     } else {
         bool reversed = this->visitor_flipped;
-        ExtrusionEntityReferences chained = chain_extrusion_references(collection, &last_pos());
+        Point start_pos = last_pos_defined() ? last_pos() : collection.first_point();
+        ExtrusionEntityReferences chained = chain_extrusion_references(collection, &start_pos);
         for (const ExtrusionEntityReference &next_entity : chained) {
             this->visitor_flipped = reversed != next_entity.flipped();
             next_entity.extrusion_entity().visit(*this);
